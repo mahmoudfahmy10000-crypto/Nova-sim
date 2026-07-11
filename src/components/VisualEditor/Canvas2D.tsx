@@ -41,6 +41,8 @@ interface Canvas2DProps {
   onDeleteConnection: (id: string) => void;
   activeEntityLocations: Record<string, string>;
   onUpdateLayout?: (nodes: SimNode[], connections: SimConnection[]) => void;
+  onSelectionChanged?: (nodeIds: string[], connectionIds: string[]) => void;
+  onHistoryReady?: (pushHistory: () => void) => void;
 }
 
 // Custom layer structure
@@ -63,7 +65,9 @@ export default function Canvas2D({
   onDeleteNode,
   onDeleteConnection,
   activeEntityLocations,
-  onUpdateLayout
+  onUpdateLayout,
+  onSelectionChanged,
+  onHistoryReady
 }: Canvas2DProps) {
   // --- Viewport State (Infinite Canvas) ---
   const [zoom, setZoom] = useState(1.0);
@@ -254,6 +258,37 @@ export default function Canvas2D({
     return () => observer.disconnect();
   }, []);
 
+  // Expose pushHistorySnapshot to parent
+  useEffect(() => {
+    if (onHistoryReady) {
+      onHistoryReady(() => {
+        pushHistorySnapshot();
+      });
+    }
+  }, [onHistoryReady, nodes, connections]);
+
+  // Synchronize selection changes to the parent while preventing loop re-renders
+  const lastSelectedNodeIds = useRef<string[]>([]);
+  const lastSelectedConnectionIds = useRef<string[]>([]);
+
+  useEffect(() => {
+    const nodeIdsEqual =
+      selectedNodeIds.length === lastSelectedNodeIds.current.length &&
+      selectedNodeIds.every((id, idx) => id === lastSelectedNodeIds.current[idx]);
+
+    const connIdsEqual =
+      selectedConnectionIds.length === lastSelectedConnectionIds.current.length &&
+      selectedConnectionIds.every((id, idx) => id === lastSelectedConnectionIds.current[idx]);
+
+    if (!nodeIdsEqual || !connIdsEqual) {
+      lastSelectedNodeIds.current = selectedNodeIds;
+      lastSelectedConnectionIds.current = selectedConnectionIds;
+      if (onSelectionChanged) {
+        onSelectionChanged(selectedNodeIds, selectedConnectionIds);
+      }
+    }
+  }, [selectedNodeIds, selectedConnectionIds, onSelectionChanged]);
+
   // --- History Push Helpers ---
   const pushHistorySnapshot = (currentNodes = nodes, currentConns = connections) => {
     const snapshot = {
@@ -318,6 +353,7 @@ export default function Canvas2D({
 
   // --- Layers & Locking filter Helpers ---
   const isNodeSelectable = (node: SimNode) => {
+    if (node.properties && node.properties.isLocked) return false;
     // Determine layer
     const layerTag = (node as any).layer || "default";
     const layer = layers.find((l) => l.id === layerTag);
@@ -1600,11 +1636,13 @@ export default function Canvas2D({
                     </div>
 
                     {/* Footer / Label */}
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-[10px] font-mono font-semibold text-slate-100 truncate pr-1">
-                        {node.name}
-                      </span>
-                    </div>
+                    {node.properties.showLabel !== false && (
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-[10px] font-mono font-semibold text-slate-100 truncate pr-1">
+                          {node.name}
+                        </span>
+                      </div>
+                    )}
                   </>
                 )}
               </div>

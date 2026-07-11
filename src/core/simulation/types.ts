@@ -36,6 +36,10 @@ export interface NodeProperties {
   width?: number;
   height?: number;
   rotation?: number;
+  // Metadata custom properties
+  isLocked?: boolean;
+  showLabel?: boolean;
+  showStatsLabel?: boolean;
 }
 
 export interface SimNode {

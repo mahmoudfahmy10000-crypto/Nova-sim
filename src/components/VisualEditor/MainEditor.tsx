@@ -83,12 +83,19 @@ export default function MainEditor() {
   const [connections, setConnections] = useState<SimConnection[]>(DEFAULT_LAYOUT.connections);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  const [selectedConnectionIds, setSelectedConnectionIds] = useState<string[]>([]);
+  const canvasHistoryPushRef = useRef<() => void>(() => {});
   const [activeView, setActiveView] = useState<"2d" | "3d">("2d");
 
   const handleSelectNode = (id: string | null) => {
     setSelectedNodeId(id);
     if (id !== null) {
       setSelectedConnectionId(null);
+      setSelectedConnectionIds([]);
+      setSelectedNodeIds((prev) => prev.includes(id) ? prev : [id]);
+    } else {
+      setSelectedNodeIds([]);
     }
   };
 
@@ -96,6 +103,10 @@ export default function MainEditor() {
     setSelectedConnectionId(id);
     if (id !== null) {
       setSelectedNodeId(null);
+      setSelectedNodeIds([]);
+      setSelectedConnectionIds((prev) => prev.includes(id) ? prev : [id]);
+    } else {
+      setSelectedConnectionIds([]);
     }
   };
 
@@ -459,6 +470,9 @@ export default function MainEditor() {
   };
 
   const handleUpdateConnectionProperties = (id: string, updatedProps: Partial<SimConnection>) => {
+    if (canvasHistoryPushRef.current) {
+      canvasHistoryPushRef.current();
+    }
     const updatedConns = connections.map((c) => (c.id === id ? { ...c, ...updatedProps } : c));
     setConnections(updatedConns);
 
@@ -472,12 +486,59 @@ export default function MainEditor() {
     }
   };
 
+  const handleUpdateMultipleConnectionsProperties = (ids: string[], updatedProps: Partial<SimConnection>) => {
+    if (canvasHistoryPushRef.current) {
+      canvasHistoryPushRef.current();
+    }
+    const updatedConns = connections.map((c) => (ids.includes(c.id) ? { ...c, ...updatedProps } : c));
+    setConnections(updatedConns);
+
+    if (wsStatus === "connected" && socketRef.current) {
+      socketRef.current.send(JSON.stringify({
+        type: "sync_layout",
+        layout: { nodes, connections: updatedConns }
+      }));
+    } else {
+      simRunnerRef.current = null;
+    }
+  };
+
   const handleUpdateProperties = (id: string, updatedProps: any, updatedName?: string) => {
+    if (canvasHistoryPushRef.current) {
+      canvasHistoryPushRef.current();
+    }
     const updatedNodes = nodes.map((n) => {
       if (n.id === id) {
         return {
           ...n,
-          name: updatedName || n.name,
+          name: updatedName !== undefined ? updatedName : n.name,
+          properties: { ...n.properties, ...updatedProps }
+        };
+      }
+      return n;
+    });
+
+    setNodes(updatedNodes);
+
+    if (wsStatus === "connected" && socketRef.current) {
+      socketRef.current.send(JSON.stringify({
+        type: "sync_layout",
+        layout: { nodes: updatedNodes, connections }
+      }));
+    } else {
+      simRunnerRef.current = null;
+    }
+  };
+
+  const handleUpdateMultipleNodesProperties = (ids: string[], updatedProps: any, updatedName?: string) => {
+    if (canvasHistoryPushRef.current) {
+      canvasHistoryPushRef.current();
+    }
+    const updatedNodes = nodes.map((n) => {
+      if (ids.includes(n.id)) {
+        return {
+          ...n,
+          name: updatedName !== undefined ? updatedName : n.name,
           properties: { ...n.properties, ...updatedProps }
         };
       }
@@ -707,6 +768,23 @@ export default function MainEditor() {
                 onDeleteNode={handleDeleteNode}
                 onDeleteConnection={handleDeleteConnection}
                 activeEntityLocations={activeEntityLocations.current}
+                onSelectionChanged={(nodeIds, connIds) => {
+                  setSelectedNodeIds(nodeIds);
+                  setSelectedConnectionIds(connIds);
+                  if (nodeIds.length === 1) {
+                    setSelectedNodeId(nodeIds[0]);
+                  } else if (nodeIds.length === 0) {
+                    setSelectedNodeId(null);
+                  }
+                  if (connIds.length === 1) {
+                    setSelectedConnectionId(connIds[0]);
+                  } else if (connIds.length === 0) {
+                    setSelectedConnectionId(null);
+                  }
+                }}
+                onHistoryReady={(pushHistory) => {
+                  canvasHistoryPushRef.current = pushHistory;
+                }}
                 onUpdateLayout={(newNodes, newConns) => {
                   setNodes(newNodes);
                   setConnections(newConns);
@@ -862,9 +940,13 @@ export default function MainEditor() {
               {sidebarTab === "inspector" && (
                 <PropertyInspector
                   selectedNode={selectedNode}
+                  selectedNodes={nodes.filter((n) => selectedNodeIds.includes(n.id))}
                   selectedConnection={connections.find((c) => c.id === selectedConnectionId) || null}
+                  selectedConnections={connections.filter((c) => selectedConnectionIds.includes(c.id))}
                   onUpdateProperties={handleUpdateProperties}
+                  onUpdateMultipleNodesProperties={handleUpdateMultipleNodesProperties}
                   onUpdateConnectionProperties={handleUpdateConnectionProperties}
+                  onUpdateMultipleConnectionsProperties={handleUpdateMultipleConnectionsProperties}
                   utilizationStats={selectedNodeStats}
                 />
               )}
