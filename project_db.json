@@ -1,0 +1,76 @@
+[
+  {
+    "id": "proj_default",
+    "name": "Standard Factory Assembly",
+    "description": "Classic 3-stage CNC factory milling line with deterministic arrival rates.",
+    "lastSaved": "2026-07-11T03:53:46.000Z",
+    "layout": {
+      "nodes": [
+        {
+          "id": "src_01",
+          "type": "source",
+          "name": "Material Arrivals",
+          "x": 50,
+          "y": 180,
+          "properties": {
+            "arrivalInterval": 12,
+            "distribution": "exponential",
+            "color": "#10b981"
+          }
+        },
+        {
+          "id": "que_01",
+          "type": "queue",
+          "name": "Assembly Buffer",
+          "x": 260,
+          "y": 180,
+          "properties": {
+            "capacity": 9999,
+            "color": "#eab308"
+          }
+        },
+        {
+          "id": "prc_01",
+          "type": "processor",
+          "name": "CNC Milling Station",
+          "x": 480,
+          "y": 180,
+          "properties": {
+            "processingTime": 8,
+            "capacity": 1,
+            "distribution": "constant",
+            "color": "#6366f1"
+          }
+        },
+        {
+          "id": "snk_01",
+          "type": "sink",
+          "name": "Completed Products",
+          "x": 720,
+          "y": 180,
+          "properties": {
+            "color": "#ef4444"
+          }
+        }
+      ],
+      "connections": [
+        {
+          "id": "conn_1",
+          "sourceId": "src_01",
+          "targetId": "que_01"
+        },
+        {
+          "id": "conn_2",
+          "sourceId": "que_01",
+          "targetId": "prc_01"
+        },
+        {
+          "id": "conn_3",
+          "sourceId": "prc_01",
+          "targetId": "snk_01"
+        }
+      ]
+    },
+    "versions": []
+  }
+]

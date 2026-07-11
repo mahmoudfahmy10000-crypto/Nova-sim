@@ -1,0 +1,6 @@
+{
+  "name": "NovaSim AI Software Architecture",
+  "description": "Interactive Software Architecture Document and explorer for NovaSim AI, a next-generation industrial simulation platform.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,15 @@
+/app/applet/NovaSim/NovaSim.Infrastructure/bin/Debug/net9.0/NovaSim.Infrastructure.deps.json
+/app/applet/NovaSim/NovaSim.Infrastructure/bin/Debug/net9.0/NovaSim.Infrastructure.dll
+/app/applet/NovaSim/NovaSim.Infrastructure/bin/Debug/net9.0/NovaSim.Infrastructure.pdb
+/app/applet/NovaSim/NovaSim.Infrastructure/bin/Debug/net9.0/NovaSim.Core.dll
+/app/applet/NovaSim/NovaSim.Infrastructure/bin/Debug/net9.0/NovaSim.Core.pdb
+/app/applet/NovaSim/NovaSim.Infrastructure/obj/Debug/net9.0/NovaSim.Infrastructure.csproj.AssemblyReference.cache
+/app/applet/NovaSim/NovaSim.Infrastructure/obj/Debug/net9.0/NovaSim.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+/app/applet/NovaSim/NovaSim.Infrastructure/obj/Debug/net9.0/NovaSim.Infrastructure.AssemblyInfoInputs.cache
+/app/applet/NovaSim/NovaSim.Infrastructure/obj/Debug/net9.0/NovaSim.Infrastructure.AssemblyInfo.cs
+/app/applet/NovaSim/NovaSim.Infrastructure/obj/Debug/net9.0/NovaSim.Infrastructure.csproj.CoreCompileInputs.cache
+/app/applet/NovaSim/NovaSim.Infrastructure/obj/Debug/net9.0/NovaSim..D193FCA4.Up2Date
+/app/applet/NovaSim/NovaSim.Infrastructure/obj/Debug/net9.0/NovaSim.Infrastructure.dll
+/app/applet/NovaSim/NovaSim.Infrastructure/obj/Debug/net9.0/refint/NovaSim.Infrastructure.dll
+/app/applet/NovaSim/NovaSim.Infrastructure/obj/Debug/net9.0/NovaSim.Infrastructure.pdb
+/app/applet/NovaSim/NovaSim.Infrastructure/obj/Debug/net9.0/ref/NovaSim.Infrastructure.dll

@@ -1,0 +1,15 @@
+/app/applet/NovaSim/NovaSim.Application/bin/Debug/net9.0/NovaSim.Application.deps.json
+/app/applet/NovaSim/NovaSim.Application/bin/Debug/net9.0/NovaSim.Application.dll
+/app/applet/NovaSim/NovaSim.Application/bin/Debug/net9.0/NovaSim.Application.pdb
+/app/applet/NovaSim/NovaSim.Application/bin/Debug/net9.0/NovaSim.Core.dll
+/app/applet/NovaSim/NovaSim.Application/bin/Debug/net9.0/NovaSim.Core.pdb
+/app/applet/NovaSim/NovaSim.Application/obj/Debug/net9.0/NovaSim.Application.csproj.AssemblyReference.cache
+/app/applet/NovaSim/NovaSim.Application/obj/Debug/net9.0/NovaSim.Application.GeneratedMSBuildEditorConfig.editorconfig
+/app/applet/NovaSim/NovaSim.Application/obj/Debug/net9.0/NovaSim.Application.AssemblyInfoInputs.cache
+/app/applet/NovaSim/NovaSim.Application/obj/Debug/net9.0/NovaSim.Application.AssemblyInfo.cs
+/app/applet/NovaSim/NovaSim.Application/obj/Debug/net9.0/NovaSim.Application.csproj.CoreCompileInputs.cache
+/app/applet/NovaSim/NovaSim.Application/obj/Debug/net9.0/NovaSim..44F3053B.Up2Date
+/app/applet/NovaSim/NovaSim.Application/obj/Debug/net9.0/NovaSim.Application.dll
+/app/applet/NovaSim/NovaSim.Application/obj/Debug/net9.0/refint/NovaSim.Application.dll
+/app/applet/NovaSim/NovaSim.Application/obj/Debug/net9.0/NovaSim.Application.pdb
+/app/applet/NovaSim/NovaSim.Application/obj/Debug/net9.0/ref/NovaSim.Application.dll

@@ -1,0 +1,284 @@
+{
+  "format": 1,
+  "restore": {
+    "/app/applet/NovaSim/NovaSim.UI/NovaSim.UI.csproj": {}
+  },
+  "projects": {
+    "/app/applet/NovaSim/NovaSim.Application/NovaSim.Application.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "/app/applet/NovaSim/NovaSim.Application/NovaSim.Application.csproj",
+        "projectName": "NovaSim.Application",
+        "projectPath": "/app/applet/NovaSim/NovaSim.Application/NovaSim.Application.csproj",
+        "packagesPath": "/root/.nuget/packages/",
+        "outputPath": "/app/applet/NovaSim/NovaSim.Application/obj/",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "/root/.nuget/NuGet/NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net9.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net9.0": {
+            "targetAlias": "net9.0",
+            "projectReferences": {
+              "/app/applet/NovaSim/NovaSim.Core/NovaSim.Core.csproj": {
+                "projectPath": "/app/applet/NovaSim/NovaSim.Core/NovaSim.Core.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "net9.0": {
+          "targetAlias": "net9.0",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/9.0.315/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "/app/applet/NovaSim/NovaSim.Core/NovaSim.Core.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "/app/applet/NovaSim/NovaSim.Core/NovaSim.Core.csproj",
+        "projectName": "NovaSim.Core",
+        "projectPath": "/app/applet/NovaSim/NovaSim.Core/NovaSim.Core.csproj",
+        "packagesPath": "/root/.nuget/packages/",
+        "outputPath": "/app/applet/NovaSim/NovaSim.Core/obj/",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "/root/.nuget/NuGet/NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net9.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net9.0": {
+            "targetAlias": "net9.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "net9.0": {
+          "targetAlias": "net9.0",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/9.0.315/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "/app/applet/NovaSim/NovaSim.Infrastructure/NovaSim.Infrastructure.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "/app/applet/NovaSim/NovaSim.Infrastructure/NovaSim.Infrastructure.csproj",
+        "projectName": "NovaSim.Infrastructure",
+        "projectPath": "/app/applet/NovaSim/NovaSim.Infrastructure/NovaSim.Infrastructure.csproj",
+        "packagesPath": "/root/.nuget/packages/",
+        "outputPath": "/app/applet/NovaSim/NovaSim.Infrastructure/obj/",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "/root/.nuget/NuGet/NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net9.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net9.0": {
+            "targetAlias": "net9.0",
+            "projectReferences": {
+              "/app/applet/NovaSim/NovaSim.Core/NovaSim.Core.csproj": {
+                "projectPath": "/app/applet/NovaSim/NovaSim.Core/NovaSim.Core.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "net9.0": {
+          "targetAlias": "net9.0",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/9.0.315/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "/app/applet/NovaSim/NovaSim.UI/NovaSim.UI.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "/app/applet/NovaSim/NovaSim.UI/NovaSim.UI.csproj",
+        "projectName": "NovaSim.UI",
+        "projectPath": "/app/applet/NovaSim/NovaSim.UI/NovaSim.UI.csproj",
+        "packagesPath": "/root/.nuget/packages/",
+        "outputPath": "/app/applet/NovaSim/NovaSim.UI/obj/",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "/root/.nuget/NuGet/NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net9.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net9.0": {
+            "targetAlias": "net9.0",
+            "projectReferences": {
+              "/app/applet/NovaSim/NovaSim.Application/NovaSim.Application.csproj": {
+                "projectPath": "/app/applet/NovaSim/NovaSim.Application/NovaSim.Application.csproj"
+              },
+              "/app/applet/NovaSim/NovaSim.Core/NovaSim.Core.csproj": {
+                "projectPath": "/app/applet/NovaSim/NovaSim.Core/NovaSim.Core.csproj"
+              },
+              "/app/applet/NovaSim/NovaSim.Infrastructure/NovaSim.Infrastructure.csproj": {
+                "projectPath": "/app/applet/NovaSim/NovaSim.Infrastructure/NovaSim.Infrastructure.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "net9.0": {
+          "targetAlias": "net9.0",
+          "dependencies": {
+            "Avalonia": {
+              "target": "Package",
+              "version": "[11.0.10, )"
+            },
+            "Avalonia.Desktop": {
+              "target": "Package",
+              "version": "[11.0.10, )"
+            },
+            "Avalonia.Diagnostics": {
+              "target": "Package",
+              "version": "[11.0.10, )"
+            },
+            "Avalonia.Fonts.Inter": {
+              "target": "Package",
+              "version": "[11.0.10, )"
+            },
+            "Avalonia.Themes.Fluent": {
+              "target": "Package",
+              "version": "[11.0.10, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/9.0.315/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}

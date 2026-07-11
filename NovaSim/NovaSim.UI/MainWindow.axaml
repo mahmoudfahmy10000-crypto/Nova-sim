@@ -1,0 +1,278 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="750"
+        x:Class="NovaSim.UI.MainWindow"
+        Title="NovaSim AI - Next-Generation Industrial Simulation Console"
+        Width="1100" Height="750"
+        WindowStartupLocation="CenterScreen"
+        Background="#0B0F19"
+        Foreground="#E2E8F0">
+
+    <Grid RowDefinitions="Auto, *, Auto">
+        <!-- Top Title Bar & Status Bar -->
+        <Border Grid.Row="0" Background="#070A13" BorderBrush="#1E293B" BorderThickness="0,0,0,1" Padding="20,15">
+            <Grid ColumnDefinitions="*, Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="15" VerticalAlignment="Center">
+                    <TextBlock Text="NovaSim AI" FontSize="20" FontWeight="Bold" Foreground="#818CF8" VerticalAlignment="Center"/>
+                    <Border CornerRadius="4" Background="#1E293B" Padding="8,4" VerticalAlignment="Center">
+                        <TextBlock Text="Desktop Avalonia App v1.0.0" FontSize="11" FontFamily="Consolas,Monospace" Foreground="#94A3B8"/>
+                    </Border>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="15" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Profile:" VerticalAlignment="Center" Foreground="#64748B" FontSize="12"/>
+                        <ComboBox SelectedIndex="0" Name="ProfileComboBox" Background="#0F172A" BorderBrush="#334155" FontSize="12">
+                            <ComboBoxItem Content="Development"/>
+                            <ComboBoxItem Content="Testing"/>
+                            <ComboBoxItem Content="Production"/>
+                        </ComboBox>
+                    </StackPanel>
+                    
+                    <Button Content="Start" Background="#4F46E5" Foreground="White" Padding="12,8" FontWeight="Bold" CornerRadius="6" Name="BootBtn"/>
+                    <Button Content="Pause" Background="#D97706" Foreground="White" Padding="12,8" FontWeight="Bold" CornerRadius="6" Name="PauseBtn" IsEnabled="False"/>
+                    <Button Content="Stop" Background="#EF4444" Foreground="White" Padding="12,8" FontWeight="Bold" CornerRadius="6" Name="StopBtn" IsEnabled="False"/>
+                    <Button Content="Reset" Background="#4B5563" Foreground="White" Padding="12,8" FontWeight="Bold" CornerRadius="6" Name="ResetBtn" IsEnabled="False"/>
+                    <Button Content="Step" Background="#059669" Foreground="White" Padding="12,8" FontWeight="Bold" CornerRadius="6" Name="StepBtn" IsEnabled="False"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Main Body TabControl -->
+        <TabControl Grid.Row="1" Margin="20" TabStripPlacement="Top">
+            <TabControl.Styles>
+                <Style Selector="TabItem">
+                    <Setter Property="FontSize" Value="13"/>
+                    <Setter Property="FontFamily" Value="Consolas,Monospace"/>
+                    <Setter Property="Padding" Value="15,10"/>
+                </Style>
+            </TabControl.Styles>
+
+            <!-- Dashboard Tab -->
+            <TabItem Header="Architecture &amp; Dashboard">
+                <Grid ColumnDefinitions="2*, 3*" Margin="0,15,0,0">
+                    <!-- Left Side: Clean Architecture visualization -->
+                    <Border Grid.Column="0" Background="#020617" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="12" Padding="20" Margin="0,0,10,0">
+                        <Grid RowDefinitions="Auto, *, Auto">
+                            <StackPanel Grid.Row="0" Spacing="5" Margin="0,0,0,15">
+                                <TextBlock Text="CLEAN ARCHITECTURE LAYERS" FontSize="12" FontWeight="Bold" Foreground="#94A3B8" LetterSpacing="1.5"/>
+                                <TextBlock Text="Verified code flow rule: strictly inward dependencies." FontSize="11" Foreground="#64748B"/>
+                            </StackPanel>
+
+                            <!-- Circular Architecture layout visual placeholder -->
+                            <Viewbox Grid.Row="1" MaxHeight="250">
+                                <Canvas Width="300" Height="300">
+                                    <!-- Outer ring UI / Avalonia -->
+                                    <Ellipse Canvas.Left="10" Canvas.Top="10" Width="280" Height="280" Stroke="#4F46E5" StrokeThickness="1.5" StrokeDashArray="4,2"/>
+                                    <TextBlock Text="NovaSim.UI (Avalonia Presentation)" Canvas.Left="50" Canvas.Top="25" Foreground="#818CF8" FontSize="10" FontWeight="Bold" FontFamily="Consolas"/>
+
+                                    <!-- Middle ring Infrastructure & Application -->
+                                    <Ellipse Canvas.Left="45" Canvas.Top="45" Width="210" Height="210" Stroke="#312E81" StrokeThickness="2"/>
+                                    <TextBlock Text="NovaSim.Infrastructure / Application" Canvas.Left="60" Canvas.Top="85" Foreground="#6366F1" FontSize="9" FontWeight="SemiBold" FontFamily="Consolas"/>
+
+                                    <!-- Core Domain layer -->
+                                    <Ellipse Canvas.Left="85" Canvas.Top="85" Width="130" Height="130" Fill="#064E3B" Stroke="#10B981" StrokeThickness="2"/>
+                                    <TextBlock Text="NovaSim.Core" Canvas.Left="115" Canvas.Top="130" Foreground="#34D399" FontSize="11" FontWeight="Bold" FontFamily="Consolas"/>
+                                    <TextBlock Text="(Enterprise Domain)" Canvas.Left="105" Canvas.Top="145" Foreground="#A7F3D0" FontSize="8" FontFamily="Consolas"/>
+                                </Canvas>
+                            </Viewbox>
+
+                            <Border Grid.Row="2" Background="#0B0F19" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,15,0,0">
+                                <TextBlock Text="Inner Core Isolation rule active: Core layer has zero knowledge of database drivers, IronPython hooks, or UI rendering pipelines." FontSize="11" Foreground="#94A3B8" TextWrapping="Wrap" FontFamily="Consolas"/>
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <!-- Right Side: Services Registry & Topology -->
+                    <Border Grid.Column="1" Background="#020617" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="12" Padding="20" Margin="10,0,0,0">
+                        <Grid RowDefinitions="Auto, *">
+                            <StackPanel Grid.Row="0" Spacing="5" Margin="0,0,0,15">
+                                <TextBlock Text="ACTIVE SERVICES LIFECYCLE REGISTRY" FontSize="12" FontWeight="Bold" Foreground="#94A3B8" LetterSpacing="1.5"/>
+                                <TextBlock Text="Topologically sorted startup order and live engine states." FontSize="11" Foreground="#64748B"/>
+                            </StackPanel>
+
+                            <ScrollViewer Grid.Row="1">
+                                <StackPanel Spacing="10">
+                                    <!-- Service 1 -->
+                                    <Border Background="#0B1329" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="8" Padding="15">
+                                        <Grid ColumnDefinitions="*, Auto">
+                                            <StackPanel Grid.Column="0" Spacing="4">
+                                                <TextBlock Text="1. Enterprise Persistence (SQLite)" FontWeight="Bold" FontSize="13" Foreground="#F8FAFC"/>
+                                                <TextBlock Text="ID: storage_service | Dependencies: None" FontSize="10" FontFamily="Consolas" Foreground="#64748B"/>
+                                            </StackPanel>
+                                            <Border Grid.Column="1" Background="#042F1A" BorderBrush="#10B981" BorderThickness="1" CornerRadius="4" Padding="8,4" VerticalAlignment="Center">
+                                                <TextBlock Text="RUNNING" FontSize="10" FontWeight="Bold" Foreground="#34D399" FontFamily="Consolas"/>
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Service 2 -->
+                                    <Border Background="#0B1329" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="8" Padding="15">
+                                        <Grid ColumnDefinitions="*, Auto">
+                                            <StackPanel Grid.Column="0" Spacing="4">
+                                                <TextBlock Text="2. Industrial Multi-Physics Solver" FontWeight="Bold" FontSize="13" Foreground="#F8FAFC"/>
+                                                <TextBlock Text="ID: physics_service | Dependencies: storage_service" FontSize="10" FontFamily="Consolas" Foreground="#64748B"/>
+                                            </StackPanel>
+                                            <Border Grid.Column="1" Background="#042F1A" BorderBrush="#10B981" BorderThickness="1" CornerRadius="4" Padding="8,4" VerticalAlignment="Center">
+                                                <TextBlock Text="RUNNING" FontSize="10" FontWeight="Bold" Foreground="#34D399" FontFamily="Consolas"/>
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Service 3 -->
+                                    <Border Background="#0B1329" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="8" Padding="15">
+                                        <Grid ColumnDefinitions="*, Auto">
+                                            <StackPanel Grid.Column="0" Spacing="4">
+                                                <TextBlock Text="3. OpenGL/WebGPU Hardware Renderer" FontWeight="Bold" FontSize="13" Foreground="#F8FAFC"/>
+                                                <TextBlock Text="ID: rendering_service | Dependencies: physics_service" FontSize="10" FontFamily="Consolas" Foreground="#64748B"/>
+                                            </StackPanel>
+                                            <Border Grid.Column="1" Background="#042F1A" BorderBrush="#10B981" BorderThickness="1" CornerRadius="4" Padding="8,4" VerticalAlignment="Center">
+                                                <TextBlock Text="RUNNING" FontSize="10" FontWeight="Bold" Foreground="#34D399" FontFamily="Consolas"/>
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Service 4 -->
+                                    <Border Background="#0B1329" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="8" Padding="15">
+                                        <Grid ColumnDefinitions="*, Auto">
+                                            <StackPanel Grid.Column="0" Spacing="4">
+                                                <TextBlock Text="4. Timescale KPI Analytics Stream" FontWeight="Bold" FontSize="13" Foreground="#F8FAFC"/>
+                                                <TextBlock Text="ID: analytics_service | Dependencies: physics_service, storage_service" FontSize="10" FontFamily="Consolas" Foreground="#64748B"/>
+                                            </StackPanel>
+                                            <Border Grid.Column="1" Background="#042F1A" BorderBrush="#10B981" BorderThickness="1" CornerRadius="4" Padding="8,4" VerticalAlignment="Center">
+                                                <TextBlock Text="RUNNING" FontSize="10" FontWeight="Bold" Foreground="#34D399" FontFamily="Consolas"/>
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- C# Files Explorer Tab -->
+            <TabItem Header="C# Code Explorer">
+                <Grid ColumnDefinitions="1*, 2*" Margin="0,15,0,0">
+                    <!-- Left Side File List -->
+                    <Border Grid.Column="0" Background="#020617" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="12" Padding="15" Margin="0,0,10,0">
+                        <Grid RowDefinitions="Auto, *">
+                            <TextBlock Grid.Row="0" Text="SOLUTION EXPLORER" FontSize="11" FontWeight="Bold" Foreground="#94A3B8" Margin="0,0,0,15" LetterSpacing="1.5"/>
+                            
+                            <TreeView Grid.Row="1" Name="FilesTreeView">
+                                <!-- Tree structure simulated with static tree nodes -->
+                                <TreeViewItem Header="NovaSim.sln" IsExpanded="True">
+                                    <TreeViewItem Header="NovaSim.Core" IsExpanded="True">
+                                        <TreeViewItem Header="Interfaces">
+                                            <TreeViewItem Header="IService.cs"/>
+                                            <TreeViewItem Header="ILogger.cs"/>
+                                        </TreeViewItem>
+                                        <TreeViewItem Header="Simulation">
+                                            <TreeViewItem Header="Entity.cs"/>
+                                            <TreeViewItem Header="Resource.cs"/>
+                                        </TreeViewItem>
+                                    </TreeViewItem>
+                                    <TreeViewItem Header="NovaSim.Application" IsExpanded="True">
+                                        <TreeViewItem Header="Services">
+                                            <TreeViewItem Header="Bootstrapper.cs"/>
+                                        </TreeViewItem>
+                                    </TreeViewItem>
+                                    <TreeViewItem Header="NovaSim.Infrastructure" IsExpanded="True">
+                                        <TreeViewItem Header="Config">
+                                            <TreeViewItem Header="ConfigManager.cs"/>
+                                        </TreeViewItem>
+                                    </TreeViewItem>
+                                </TreeViewItem>
+                            </TreeView>
+                        </Grid>
+                    </Border>
+
+                    <!-- Right Side Code Viewer -->
+                    <Border Grid.Column="1" Background="#020617" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="12" Padding="20" Margin="10,0,0,0">
+                        <Grid RowDefinitions="Auto, *">
+                            <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,10">
+                                <TextBlock Grid.Column="0" Text="SOURCE CODE INSPECTOR (ReadOnly)" FontSize="11" FontWeight="Bold" Foreground="#94A3B8" LetterSpacing="1.5"/>
+                                <TextBlock Grid.Column="1" Text="NovaSim.Core/Simulation/Entity.cs" FontSize="10" FontFamily="Consolas,Monospace" Foreground="#818CF8"/>
+                            </Grid>
+                            
+                            <ScrollViewer Grid.Row="1" Background="#05080E" CornerRadius="8" Padding="15">
+                                <TextBox Text="using System;&#13;using System.Collections.Concurrent;&#13;&#13;namespace NovaSim.Core.Simulation&#13;{&#13;    public abstract class Entity&#13;    {&#13;        public string Id { get; }&#13;        public string Name { get; }&#13;        public double CreationTime { get; }&#13;        public ConcurrentDictionary&lt;string, object&gt; Attributes { get; }&#13;&#13;        protected Entity(string id, string name, double creationTime)&#13;        {&#13;            Id = id;&#13;            Name = name ?? id;&#13;            CreationTime = creationTime;&#13;            Attributes = new ConcurrentDictionary&lt;string, object&gt;();&#13;        }&#13;    }&#13;}"
+                                         FontFamily="Consolas,Monospace" FontSize="12" Foreground="#D1D5DB"
+                                         IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                                         Background="Transparent" BorderThickness="0" BorderBrush="Transparent"/>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- Compiler & Console Logs -->
+            <TabItem Header="Compiler &amp; Logs">
+                <Grid RowDefinitions="Auto, *, Auto" Margin="0,15,0,0">
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0,0,0,15">
+                        <Button Content="Run MSBuild Compiler" Background="#1E1B4B" BorderBrush="#4F46E5" BorderThickness="1" Padding="12,6" FontSize="12" Name="CompileButton"/>
+                        <Button Content="Clear Logs" Background="#1A0E0E" BorderBrush="#991B1B" BorderThickness="1" Padding="12,6" FontSize="12" Name="ClearLogsButton"/>
+                    </StackPanel>
+
+                    <Border Grid.Row="1" Background="#05080E" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="8" Padding="15">
+                        <ScrollViewer>
+                            <TextBlock Name="ConsoleOutputTextBlock" Text="[MSBuild] Core assembly reference validated successfully.&#13;[MSBuild] NovaSim.Core -> C:\NovaSim\NovaSim.Core\bin\Debug\net9.0\NovaSim.Core.dll&#13;[MSBuild] NovaSim.Application -> C:\NovaSim\NovaSim.Application\bin\Debug\net9.0\NovaSim.Application.dll&#13;[MSBuild] NovaSim.Infrastructure -> C:\NovaSim\NovaSim.Infrastructure\bin\Debug\net9.0\NovaSim.Infrastructure.dll&#13;[MSBuild] NovaSim.UI -> C:\NovaSim\NovaSim.UI\bin\Debug\net9.0\NovaSim.UI.dll&#13;[MSBuild] Build Succeeded: 0 Warning(s), 0 Error(s).&#13;[SYSTEM] Ready to execute..." 
+                                       FontFamily="Consolas,Monospace" FontSize="12" Foreground="#34D399" LineHeight="20"/>
+                        </ScrollViewer>
+                    </Border>
+                    
+                    <TextBlock Grid.Row="2" Text="Total compiled assemblies count: 4 (Core, Application, Infrastructure, Presentation)" FontSize="10" Foreground="#64748B" Margin="0,10,0,0" FontFamily="Consolas"/>
+                </Grid>
+            </TabItem>
+
+            <!-- IronPython Integration Hook -->
+            <TabItem Header="IronPython Hook">
+                <Grid ColumnDefinitions="3*, 2*" Margin="0,15,0,0">
+                    <!-- Script editor -->
+                    <Border Grid.Column="0" Background="#020617" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="12" Padding="20" Margin="0,0,10,0">
+                        <Grid RowDefinitions="Auto, *, Auto">
+                            <StackPanel Grid.Row="0" Spacing="5" Margin="0,0,0,15">
+                                <TextBlock Text="IRONPYTHON LIVE PROPERTIES HOOK" FontSize="12" FontWeight="Bold" Foreground="#94A3B8" LetterSpacing="1.5"/>
+                                <TextBlock Text="Inject Python scripts into C# runtime tick loops to dynamically alter simulation deltas." FontSize="11" Foreground="#64748B"/>
+                            </StackPanel>
+
+                            <TextBox Grid.Row="1" AcceptsReturn="True" FontFamily="Consolas,Monospace" FontSize="12" Background="#05080E" BorderBrush="#1E293B" Foreground="#34D399" Padding="12" Name="PythonScriptTextBox"
+                                     Text="def on_simulation_tick(clock, deltas):&#13;    # Override physics coefficients dynamically on ticks&#13;    deltas['viscosity_coefficient'] = 1.25&#13;    deltas['thermal_expansion'] = 0.045&#13;    print(f'[IronPython] Clock={clock:.2f} | Viscosity overriden to 1.25')"/>
+
+                            <Button Grid.Row="2" Content="Inject IronPython Hook Script" Background="#047857" Foreground="White" Padding="15,8" FontWeight="Bold" CornerRadius="6" HorizontalAlignment="Right" Margin="0,15,0,0" Name="InjectPythonButton"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Hook output -->
+                    <Border Grid.Column="1" Background="#020617" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="12" Padding="20" Margin="10,0,0,0">
+                        <Grid RowDefinitions="Auto, *">
+                            <TextBlock Grid.Row="0" Text="PYTHON CONSOLE LOGS" FontSize="12" FontWeight="Bold" Foreground="#94A3B8" Margin="0,0,0,15" LetterSpacing="1.5"/>
+                            <Border Grid.Row="1" Background="#05080E" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="8" Padding="12">
+                                <ScrollViewer>
+                                    <TextBlock Text="[IronPython Interpreter initialized]&#13;[Linker] Core Dynamic Properties dictionary bound to standard scope.&#13;[Ready for live tick scripts]" FontFamily="Consolas,Monospace" FontSize="11" Foreground="#F59E0B" LineHeight="18"/>
+                                </ScrollViewer>
+                            </Border>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <!-- Bottom Status Bar -->
+        <Border Grid.Row="2" Background="#070A13" BorderBrush="#1E293B" BorderThickness="0,1,0,0" Padding="20,10">
+            <Grid ColumnDefinitions="*, Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="20">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Ellipse Width="8" Height="8" Fill="#10B981" VerticalAlignment="Center"/>
+                        <TextBlock Text="C# Core Status: READY" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" FontFamily="Consolas,Monospace"/>
+                    </StackPanel>
+                    <TextBlock Text="|" Foreground="#1E293B" VerticalAlignment="Center"/>
+                    <TextBlock Text="Hardware Acceleration: Vulkan (VK_KHR_surface)" FontSize="11" Foreground="#64748B" VerticalAlignment="Center" FontFamily="Consolas,Monospace"/>
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="NovaSim AI Architecture Document" FontSize="11" Foreground="#64748B" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,11 @@
+/app/applet/NovaSim/NovaSim.Core/bin/Debug/net9.0/NovaSim.Core.deps.json
+/app/applet/NovaSim/NovaSim.Core/bin/Debug/net9.0/NovaSim.Core.dll
+/app/applet/NovaSim/NovaSim.Core/bin/Debug/net9.0/NovaSim.Core.pdb
+/app/applet/NovaSim/NovaSim.Core/obj/Debug/net9.0/NovaSim.Core.GeneratedMSBuildEditorConfig.editorconfig
+/app/applet/NovaSim/NovaSim.Core/obj/Debug/net9.0/NovaSim.Core.AssemblyInfoInputs.cache
+/app/applet/NovaSim/NovaSim.Core/obj/Debug/net9.0/NovaSim.Core.AssemblyInfo.cs
+/app/applet/NovaSim/NovaSim.Core/obj/Debug/net9.0/NovaSim.Core.csproj.CoreCompileInputs.cache
+/app/applet/NovaSim/NovaSim.Core/obj/Debug/net9.0/NovaSim.Core.dll
+/app/applet/NovaSim/NovaSim.Core/obj/Debug/net9.0/refint/NovaSim.Core.dll
+/app/applet/NovaSim/NovaSim.Core/obj/Debug/net9.0/NovaSim.Core.pdb
+/app/applet/NovaSim/NovaSim.Core/obj/Debug/net9.0/ref/NovaSim.Core.dll
