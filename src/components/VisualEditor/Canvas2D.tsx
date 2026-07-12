@@ -43,6 +43,11 @@ interface Canvas2DProps {
   onUpdateLayout?: (nodes: SimNode[], connections: SimConnection[]) => void;
   onSelectionChanged?: (nodeIds: string[], connectionIds: string[]) => void;
   onHistoryReady?: (pushHistory: () => void) => void;
+  initialZoom?: number;
+  initialPanOffset?: { x: number; y: number };
+  initialShowGrid?: boolean;
+  initialSnapSize?: number;
+  onViewportChanged?: (zoom: number, panOffset: { x: number; y: number }, showGrid: boolean, snapSize: number) => void;
 }
 
 // Custom layer structure
@@ -67,19 +72,48 @@ export default function Canvas2D({
   activeEntityLocations,
   onUpdateLayout,
   onSelectionChanged,
-  onHistoryReady
+  onHistoryReady,
+  initialZoom = 1.0,
+  initialPanOffset = { x: 50, y: 50 },
+  initialShowGrid = true,
+  initialSnapSize = 10,
+  onViewportChanged
 }: Canvas2DProps) {
   // --- Viewport State (Infinite Canvas) ---
-  const [zoom, setZoom] = useState(1.0);
-  const [panOffset, setPanOffset] = useState({ x: 50, y: 50 });
+  const [zoom, setZoom] = useState(initialZoom);
+  const [panOffset, setPanOffset] = useState(initialPanOffset);
   const [containerSize, setContainerSize] = useState({ width: 800, height: 520 });
 
   // --- Selection State (Multi-selection) ---
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
 
   // --- Grid and Snapping ---
-  const [snapSize, setSnapSize] = useState<number>(10); // 1, 5, 10, 20, 50, or 0 (off)
-  const [showGrid, setShowGrid] = useState(true);
+  const [snapSize, setSnapSize] = useState<number>(initialSnapSize); // 1, 5, 10, 20, 50, or 0 (off)
+  const [showGrid, setShowGrid] = useState(initialShowGrid);
+
+  // Sync state when props change
+  useEffect(() => {
+    if (initialZoom !== undefined) setZoom(initialZoom);
+  }, [initialZoom]);
+
+  useEffect(() => {
+    if (initialPanOffset !== undefined) setPanOffset(initialPanOffset);
+  }, [initialPanOffset?.x, initialPanOffset?.y]);
+
+  useEffect(() => {
+    if (initialShowGrid !== undefined) setShowGrid(initialShowGrid);
+  }, [initialShowGrid]);
+
+  useEffect(() => {
+    if (initialSnapSize !== undefined) setSnapSize(initialSnapSize);
+  }, [initialSnapSize]);
+
+  // Report viewport changes back to parent
+  useEffect(() => {
+    if (onViewportChanged) {
+      onViewportChanged(zoom, panOffset, showGrid, snapSize);
+    }
+  }, [zoom, panOffset.x, panOffset.y, showGrid, snapSize, onViewportChanged]);
 
   // --- Layer Management ---
   const [layers, setLayers] = useState<CanvasLayer[]>([
@@ -190,6 +224,10 @@ export default function Canvas2D({
   const [marqueeStart, setMarqueeStart] = useState({ x: 0, y: 0 });
   const [marqueeEnd, setMarqueeEnd] = useState({ x: 0, y: 0 });
   const [isDrawingMarquee, setIsDrawingMarquee] = useState(false);
+
+  // Lasso Selection State
+  const [lassoPoints, setLassoPoints] = useState<{ x: number; y: number }[]>([]);
+  const [isDrawingLasso, setIsDrawingLasso] = useState(false);
 
   // Panning drag state
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
@@ -776,11 +814,16 @@ export default function Canvas2D({
         return;
       }
 
-      // Otherwise click on empty space: start Marquee selection
+      // Otherwise click on empty space: start Marquee or Lasso selection
       const canvasCoords = screenToCanvas(e.clientX, e.clientY);
-      setMarqueeStart(canvasCoords);
-      setMarqueeEnd(canvasCoords);
-      setIsDrawingMarquee(true);
+      if (dragMode === "lasso") {
+        setLassoPoints([canvasCoords]);
+        setIsDrawingLasso(true);
+      } else {
+        setMarqueeStart(canvasCoords);
+        setMarqueeEnd(canvasCoords);
+        setIsDrawingMarquee(true);
+      }
     }
   };
 
@@ -794,6 +837,13 @@ export default function Canvas2D({
       const dy = e.clientY - panStart.y;
       setPanOffset((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
       setPanStart({ x: e.clientX, y: e.clientY });
+      return;
+    }
+
+    // 1.5 Lasso Selection Path update
+    if (isDrawingLasso) {
+      const canvasCoords = screenToCanvas(e.clientX, e.clientY);
+      setLassoPoints((prev) => [...prev, canvasCoords]);
       return;
     }
 
@@ -999,6 +1049,38 @@ export default function Canvas2D({
 
     if (isDrawingMarquee) {
       setIsDrawingMarquee(false);
+    }
+
+    if (isDrawingLasso) {
+      setIsDrawingLasso(false);
+      if (lassoPoints.length > 2) {
+        const selected = activeNodes.filter((node) => {
+          if (!isNodeSelectable(node)) return false;
+          const nodeW = node.properties.width || 140;
+          const nodeH = node.properties.height || 52;
+          const centerX = node.x + nodeW / 2;
+          const centerY = node.y + nodeH / 2;
+          
+          let inside = false;
+          for (let i = 0, j = lassoPoints.length - 1; i < lassoPoints.length; j = i++) {
+            const xi = lassoPoints[i].x, yi = lassoPoints[i].y;
+            const xj = lassoPoints[j].x, yj = lassoPoints[j].y;
+            const intersect = ((yi > centerY) !== (yj > centerY))
+                && (centerX < (xj - xi) * (centerY - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+          }
+          return inside;
+        });
+
+        const selectedIds = selected.map((n) => n.id);
+        setSelectedNodeIds(selectedIds);
+        if (selectedIds.length > 0) {
+          onSelectNode(selectedIds[selectedIds.length - 1]);
+        } else {
+          onSelectNode(null);
+        }
+      }
+      setLassoPoints([]);
     }
 
     if (isNodeDraggingActive) {
@@ -1664,8 +1746,52 @@ export default function Canvas2D({
         />
       )}
 
+      {/* Lasso selection path overlay */}
+      {isDrawingLasso && lassoPoints.length > 0 && (
+        <svg className="absolute inset-0 w-full h-full pointer-events-none z-50">
+          <polygon
+            points={lassoPoints
+              .map((p) => `${p.x * zoom + panOffset.x},${p.y * zoom + panOffset.y}`)
+              .join(" ")}
+            className="fill-indigo-500/10 stroke-indigo-500 stroke-1"
+            strokeDasharray="4 4"
+          />
+        </svg>
+      )}
+
       {/* top HUD overlay: Canvas Navigation & Options */}
       <div className="absolute top-3 left-4 pointer-events-none z-10 flex flex-wrap gap-2 max-w-[80%]">
+        {/* Cursor/Drag Mode controller */}
+        <div className="flex items-center gap-0.5 bg-slate-900/90 border border-slate-800 rounded p-0.5 shadow-lg backdrop-blur-sm pointer-events-auto">
+          <button
+            onClick={() => setDragMode("select")}
+            className={`px-2 py-0.5 text-[9px] font-mono font-bold rounded transition-colors cursor-pointer ${
+              dragMode === "select" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+            }`}
+            title="Normal Box Selection Tool"
+          >
+            SELECT
+          </button>
+          <button
+            onClick={() => setDragMode("pan")}
+            className={`px-2 py-0.5 text-[9px] font-mono font-bold rounded transition-colors cursor-pointer ${
+              dragMode === "pan" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+            }`}
+            title="Canvas Panning Tool"
+          >
+            PAN
+          </button>
+          <button
+            onClick={() => setDragMode("lasso")}
+            className={`px-2 py-0.5 text-[9px] font-mono font-bold rounded transition-colors cursor-pointer ${
+              dragMode === "lasso" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+            }`}
+            title="Lasso Selection Tool"
+          >
+            LASSO
+          </button>
+        </div>
+
         <span className="text-[9px] font-mono text-slate-400 uppercase tracking-wider bg-slate-900/90 border border-slate-800 px-2 py-1 rounded shadow-lg backdrop-blur-sm pointer-events-auto">
           Zoom: {Math.round(zoom * 100)}%
         </span>

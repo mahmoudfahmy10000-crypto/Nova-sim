@@ -95,7 +95,56 @@ async function startServer() {
     }
   });
 
-  // REST API: Get Default Project Layout
+  // REST API: Get All Projects
+  app.get("/api/projects", async (req, res) => {
+    try {
+      const list = await projectService.getAllProjects();
+      res.json(list);
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to fetch projects." });
+    }
+  });
+
+  // REST API: Get Project by ID
+  app.get("/api/projects/:id", async (req, res) => {
+    try {
+      const project = await projectService.getProject(req.params.id);
+      if (project) {
+        res.json(project);
+      } else {
+        res.status(404).json({ error: "Project not found." });
+      }
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to fetch project." });
+    }
+  });
+
+  // REST API: Save Project by ID
+  app.post("/api/projects/:id", async (req, res) => {
+    const project = req.body;
+    if (!project || !project.id || !project.layout || !Array.isArray(project.layout.nodes)) {
+      return res.status(400).json({ error: "Invalid project payload" });
+    }
+    
+    try {
+      await projectService.saveProject(project);
+      res.json({ status: "success", message: `Project '${project.name}' persisted successfully.` });
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to persist project." });
+    }
+  });
+
+  // REST API: Delete Project by ID
+  app.delete("/api/projects/:id", async (req, res) => {
+    try {
+      await projectService.removeProject(req.params.id);
+      res.json({ status: "success", message: `Project '${req.params.id}' deleted successfully.` });
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to delete project." });
+    }
+  });
+
+  // REST API: Legacy Default Project Layout Getter
   app.get("/api/projects/default", async (req, res) => {
     try {
       const project = await projectService.getProject("proj_default");
@@ -109,9 +158,9 @@ async function startServer() {
     }
   });
 
-  // REST API: Save Default Project Layout
+  // REST API: Legacy Default Project Layout Setter
   app.post("/api/projects/default", async (req, res) => {
-    const layout: SimulationLayout = req.body;
+    const layout = req.body;
     if (!layout || !Array.isArray(layout.nodes)) {
       return res.status(400).json({ error: "Invalid layout payload" });
     }
@@ -134,6 +183,47 @@ async function startServer() {
   // REST API: Health Check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", aiConfigured: !!ai, dbConnected: postgres.isConnected() });
+  });
+
+  // REST API: Export Analytics Data (Phase 11)
+  app.get("/api/analytics/export", (req, res) => {
+    let activeSession = null;
+    for (const session of activeSessions.values()) {
+      if (session.engine) {
+        activeSession = session;
+        break;
+      }
+    }
+
+    if (activeSession && activeSession.engine) {
+      const analytics = activeSession.engine.getAnalytics();
+      res.json({
+        status: "success",
+        timestamp: new Date().toISOString(),
+        analytics
+      });
+    } else {
+      res.json({
+        status: "idle",
+        message: "No active discrete-event simulation sessions detected. Run simulation to gather data.",
+        analytics: null
+      });
+    }
+  });
+
+  // REST API: Reset Analytics Statistics (Phase 11)
+  app.post("/api/analytics/reset", (req, res) => {
+    let count = 0;
+    for (const session of activeSessions.values()) {
+      if (session.engine) {
+        session.engine.resetStatistics();
+        count++;
+      }
+    }
+    res.json({
+      status: "success",
+      message: `Reset metrics across ${count} active simulation session(s).`
+    });
   });
 
   // AI API: Layout configuration compiler using Gemini
@@ -225,6 +315,206 @@ User Instruction Prompt:
     }
   });
 
+  // AI API: Explain simulation layout
+  app.post("/api/ai/explain", async (req, res) => {
+    try {
+      const { layout } = req.body;
+      if (!ai) {
+        return res.status(500).json({ error: "Gemini API is offline. Provide GEMINI_API_KEY." });
+      }
+      if (!layout) {
+        return res.status(400).json({ error: "Layout is required." });
+      }
+
+      const prompt = `You are an expert industrial engineering systems analyst.
+Analyze and explain this NovaSim simulation layout:
+${JSON.stringify(layout, null, 2)}
+
+Provide a clear, cohesive explanation of the manufacturing/logistical pipeline.
+Describe how material flows from arrivals to terminals, and the purpose of intermediate buffers and milling/processing systems.
+Keep your analysis professional, structured, and focused on physical operational flows.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: [prompt],
+        config: { temperature: 0.2 }
+      });
+
+      res.json({ text: response.text || "Unable to generate explanation." });
+    } catch (err: any) {
+      console.error("AI Explain Error:", err);
+      res.status(500).json({ error: err.message || "Failed to analyze layout." });
+    }
+  });
+
+  // AI API: Bottleneck detection
+  app.post("/api/ai/bottlenecks", async (req, res) => {
+    try {
+      const { layout } = req.body;
+      if (!ai) {
+        return res.status(500).json({ error: "Gemini API is offline. Provide GEMINI_API_KEY." });
+      }
+      if (!layout) {
+        return res.status(400).json({ error: "Layout is required." });
+      }
+
+      const prompt = `You are a continuous improvement manufacturing bottleneck detection engine.
+Evaluate this active simulation layout for potential throughput restrictions, blockages, and starved or blocked machines:
+${JSON.stringify(layout, null, 2)}
+
+Identify specific nodes (buffers with high overflow risk, slow processors, or unbalanced routers) likely to cause queuing backlogs.
+List the bottlenecks clearly and explain the queue mathematics behind your conclusions.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: [prompt],
+        config: { temperature: 0.1 }
+      });
+
+      res.json({ text: response.text || "No bottlenecks detected." });
+    } catch (err: any) {
+      console.error("AI Bottlenecks Error:", err);
+      res.status(500).json({ error: err.message || "Failed to audit bottlenecks." });
+    }
+  });
+
+  // AI API: Optimizations suggestion
+  app.post("/api/ai/optimize", async (req, res) => {
+    try {
+      const { layout } = req.body;
+      if (!ai) {
+        return res.status(500).json({ error: "Gemini API is offline. Provide GEMINI_API_KEY." });
+      }
+      if (!layout) {
+        return res.status(400).json({ error: "Layout is required." });
+      }
+
+      const prompt = `You are a lean manufacturing optimization advisor.
+Suggest physical optimization parameters for this simulation layout:
+${JSON.stringify(layout, null, 2)}
+
+Propose specific adjustments to cycle times, arrival intervals, queue capacities, router decision branch probabilities, or resource allocations to increase final terminal throughput and balance processing workloads.
+Provide actionable suggestions in a clear bulleted format.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: [prompt],
+        config: { temperature: 0.2 }
+      });
+
+      res.json({ text: response.text || "No optimization recommendations available." });
+    } catch (err: any) {
+      console.error("AI Optimize Error:", err);
+      res.status(500).json({ error: err.message || "Failed to generate optimizations." });
+    }
+  });
+
+  // AI API: Model validation & debugging
+  app.post("/api/ai/validate", async (req, res) => {
+    try {
+      const { layout } = req.body;
+      if (!ai) {
+        return res.status(500).json({ error: "Gemini API is offline. Provide GEMINI_API_KEY." });
+      }
+      if (!layout) {
+        return res.status(400).json({ error: "Layout is required." });
+      }
+
+      const prompt = `You are a CAD validation and simulation graph compiler debugger.
+Validate the physical topology and configuration integrity of this simulation model layout:
+${JSON.stringify(layout, null, 2)}
+
+Audit the graph for architectural anomalies:
+1. Dead ends / disconnected nodes
+2. Sources that don't connect to anything
+3. Sinks that have no incoming connections
+4. Cycles or loops that could trap items indefinitely
+5. Zero or negative capacities, processing times, or interval parameters
+
+Output a precise, professional validation audit table listing warnings or fatal errors, and suggest targeted debugging fixes.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: [prompt],
+        config: { temperature: 0.1 }
+      });
+
+      res.json({ text: response.text || "Validation completed successfully with zero warnings." });
+    } catch (err: any) {
+      console.error("AI Validate Error:", err);
+      res.status(500).json({ error: err.message || "Failed to validate model." });
+    }
+  });
+
+  // AI API: Auto-create Dashboard Suggestions
+  app.post("/api/ai/dashboard", async (req, res) => {
+    try {
+      const { layout } = req.body;
+      if (!ai) {
+        return res.status(500).json({ error: "Gemini API is offline. Provide GEMINI_API_KEY." });
+      }
+      if (!layout) {
+        return res.status(400).json({ error: "Layout is required." });
+      }
+
+      const prompt = `You are a commercial dashboard layout architect.
+Based on this simulation graph layout:
+${JSON.stringify(layout, null, 2)}
+
+Suggest an optimized dashboard layout configuration for NovaSim.
+Identify which nodes deserve real-time charts (e.g. queue occupancy, machine utilization, terminal throughput rate), what type of chart (line, bar, pie, gauge) would best represent their states, and the specific metrics to focus on.
+Describe the perfect dashboard arrangement conceptually.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: [prompt],
+        config: { temperature: 0.3 }
+      });
+
+      res.json({ text: response.text || "Unable to generate dashboard configuration." });
+    } catch (err: any) {
+      console.error("AI Dashboard Error:", err);
+      res.status(500).json({ error: err.message || "Failed to generate dashboard layout." });
+    }
+  });
+
+  // AI API: Executive summary report generation
+  app.post("/api/ai/report", async (req, res) => {
+    try {
+      const { layout } = req.body;
+      if (!ai) {
+        return res.status(500).json({ error: "Gemini API is offline. Provide GEMINI_API_KEY." });
+      }
+      if (!layout) {
+        return res.status(400).json({ error: "Layout is required." });
+      }
+
+      const prompt = `You are a Principal Operations Research Scientist.
+Generate a comprehensive executive simulation performance report for this model layout:
+${JSON.stringify(layout, null, 2)}
+
+Provide a structured report with:
+1. Executive Summary: Operational overview
+2. Topographical Mapping: Details on the physical flow setup
+3. Operational Performance Targets: Standard KPIs (throughput, utilization) based on nominal layout rates
+4. Risk Profile: Potential buffer overflows or starved systems
+5. Next-Stage Scaling Plan: Dynamic advice on capacity upgrades
+
+Use professional academic and enterprise operations terminology. Keep it ready-for-boardroom delivery.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: [prompt],
+        config: { temperature: 0.2 }
+      });
+
+      res.json({ text: response.text || "Failed to compile report." });
+    } catch (err: any) {
+      console.error("AI Report Error:", err);
+      res.status(500).json({ error: err.message || "Failed to compile executive report." });
+    }
+  });
+
   // REST API: Chat endpoint for CTO Copilot
   app.post("/api/chat", async (req, res) => {
     try {
@@ -305,14 +595,65 @@ When answering, reference concrete classes (e.g., SimulationCoordinator, ISolver
     layout: SimulationLayout;
     engine: DiscreteEventSimulation | null;
     timer: any | null;
+    seed: number;
+    speed: number;
   }>();
+
+  const runSimulationLoop = (ws: WebSocket, session: any) => {
+    if (session.timer) {
+      clearInterval(session.timer);
+      session.timer = null;
+    }
+
+    const intervalMs = Math.max(10, 100 / session.speed);
+
+    session.timer = setInterval(() => {
+      const eng = session.engine;
+      if (eng && eng.state === "Running") {
+        try {
+          const stepsToRun = Math.max(1, Math.floor(session.speed));
+          let keepGoing = true;
+
+          for (let i = 0; i < stepsToRun; i++) {
+            keepGoing = eng.step();
+            if (!keepGoing) break;
+          }
+
+          const summary = eng.getSummary();
+
+          ws.send(JSON.stringify({
+            type: "sim_tick",
+            summary: summary
+          }));
+
+          if (!keepGoing) {
+            clearInterval(session.timer);
+            session.timer = null;
+            ws.send(JSON.stringify({ type: "sim_state_changed", state: "Completed" }));
+          }
+        } catch (err: any) {
+          logger.error("Simulation engine execution error over WebSockets:", err, "WEBSOCKETS");
+          if (session.timer) {
+            clearInterval(session.timer);
+            session.timer = null;
+          }
+          ws.send(JSON.stringify({
+            type: "sim_error",
+            error: err.message || "A fatal error occurred inside the simulation solver core."
+          }));
+        }
+      }
+    }, intervalMs);
+  };
 
   wss.on("connection", (ws) => {
     // Initialize session structure
     activeSessions.set(ws, {
       layout: { nodes: [], connections: [] },
       engine: null,
-      timer: null
+      timer: null,
+      seed: 42,
+      speed: 1.0
     });
 
     ws.on("message", (raw) => {
@@ -325,44 +666,50 @@ When answering, reference concrete classes (e.g., SimulationCoordinator, ISolver
         switch (data.type) {
           case "sync_layout":
             session.layout = data.layout;
+            if (data.seed !== undefined) {
+              session.seed = data.seed;
+            }
+            if (data.speed !== undefined) {
+              session.speed = data.speed;
+            }
             // Stop existing simulation if any
             if (session.timer) {
               clearInterval(session.timer);
               session.timer = null;
             }
-            // Load a fresh simulation engine
-            session.engine = new DiscreteEventSimulation(data.layout, 42);
+            // Load a fresh simulation engine with seed
+            session.engine = new DiscreteEventSimulation(data.layout, session.seed);
             ws.send(JSON.stringify({ type: "sim_state_changed", state: "Created" }));
+            break;
+
+          case "sim_speed_changed":
+            session.speed = data.speed || 1.0;
+            if (session.engine && session.engine.state === "Running") {
+              runSimulationLoop(ws, session);
+            }
+            break;
+
+          case "sim_seed_changed":
+            session.seed = data.seed || 42;
+            if (session.timer) {
+              clearInterval(session.timer);
+              session.timer = null;
+            }
+            session.engine = new DiscreteEventSimulation(session.layout, session.seed);
+            ws.send(JSON.stringify({ type: "sim_state_changed", state: "Created" }));
+            ws.send(JSON.stringify({
+              type: "sim_tick",
+              summary: session.engine.getSummary()
+            }));
             break;
 
           case "sim_start":
             if (!session.engine) {
-              session.engine = new DiscreteEventSimulation(session.layout, 42);
+              session.engine = new DiscreteEventSimulation(session.layout, session.seed);
             }
             session.engine.state = "Running";
 
-            // Clear old loops
-            if (session.timer) clearInterval(session.timer);
-
-            // Establish real-time discrete event tick dispatcher
-            session.timer = setInterval(() => {
-              const eng = session.engine;
-              if (eng && eng.state === "Running") {
-                const keepGoing = eng.step();
-                const summary = eng.getSummary();
-
-                ws.send(JSON.stringify({
-                  type: "sim_tick",
-                  summary: summary
-                }));
-
-                if (!keepGoing) {
-                  clearInterval(session.timer);
-                  session.timer = null;
-                  ws.send(JSON.stringify({ type: "sim_state_changed", state: "Completed" }));
-                }
-              }
-            }, 100); // 100ms ticks
+            runSimulationLoop(ws, session);
 
             ws.send(JSON.stringify({ type: "sim_state_changed", state: "Running" }));
             break;
@@ -383,7 +730,7 @@ When answering, reference concrete classes (e.g., SimulationCoordinator, ISolver
               clearInterval(session.timer);
               session.timer = null;
             }
-            session.engine = new DiscreteEventSimulation(session.layout, 42);
+            session.engine = new DiscreteEventSimulation(session.layout, session.seed);
             ws.send(JSON.stringify({ type: "sim_state_changed", state: "Created" }));
             
             // Send initial variables summary
@@ -395,7 +742,24 @@ When answering, reference concrete classes (e.g., SimulationCoordinator, ISolver
 
           case "sim_step":
             if (session.engine) {
-              session.engine.step();
+              try {
+                session.engine.step();
+                ws.send(JSON.stringify({
+                  type: "sim_tick",
+                  summary: session.engine.getSummary()
+                }));
+              } catch (err: any) {
+                ws.send(JSON.stringify({
+                  type: "sim_error",
+                  error: err.message || "An error occurred during step execution."
+                }));
+              }
+            }
+            break;
+
+          case "reset_statistics":
+            if (session.engine) {
+              session.engine.resetStatistics();
               ws.send(JSON.stringify({
                 type: "sim_tick",
                 summary: session.engine.getSummary()

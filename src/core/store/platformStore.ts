@@ -53,6 +53,9 @@ interface PlatformState {
   // Projects State
   projects: Project[];
   currentProjectId: string | null;
+  autosaveEnabled: boolean;
+  recentProjects: { id: string; name: string; timestamp: string }[];
+  crashBackup: { projectId: string; layout: SimulationLayout; timestamp: string } | null;
   setProjects: (projects: Project[]) => void;
   setCurrentProjectId: (id: string | null) => void;
   addProject: (project: Project) => void;
@@ -60,6 +63,10 @@ interface PlatformState {
   updateProjectLayout: (id: string, layout: SimulationLayout) => void;
   createProjectSnapshot: (id: string, comment: string) => void;
   restoreProjectSnapshot: (projectId: string, versionId: string) => void;
+  toggleAutosave: () => void;
+  addRecentProject: (id: string, name: string) => void;
+  clearRecentProjects: () => void;
+  setCrashBackup: (backup: { projectId: string; layout: SimulationLayout; timestamp: string } | null) => void;
 
   // Plugins State
   plugins: Plugin[];
@@ -104,14 +111,51 @@ export const usePlatformStore = create<PlatformState>((set) => ({
   // Projects State
   projects: [],
   currentProjectId: "proj_default",
+  autosaveEnabled: (() => {
+    if (typeof window !== "undefined") {
+      const saved = window.localStorage.getItem("novasim_autosave_enabled");
+      return saved === null ? true : saved === "true";
+    }
+    return true;
+  })(),
+  recentProjects: (() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = window.localStorage.getItem("novasim_recent_projects");
+        return saved ? JSON.parse(saved) : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  })(),
+  crashBackup: (() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = window.localStorage.getItem("novasim_crash_backup");
+        return saved ? JSON.parse(saved) : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  })(),
 
   setProjects: (projects) => set({ projects }),
   setCurrentProjectId: (id) => set({ currentProjectId: id }),
   addProject: (project) => set((state) => ({ projects: [...state.projects, project] })),
-  deleteProject: (id) => set((state) => ({
-    projects: state.projects.filter((p) => p.id !== id),
-    currentProjectId: state.currentProjectId === id ? null : state.currentProjectId
-  })),
+  deleteProject: (id) => set((state) => {
+    // Also remove from recent projects list
+    const filteredRecent = state.recentProjects.filter((rp) => rp.id !== id);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("novasim_recent_projects", JSON.stringify(filteredRecent));
+    }
+    return {
+      projects: state.projects.filter((p) => p.id !== id),
+      currentProjectId: state.currentProjectId === id ? null : state.currentProjectId,
+      recentProjects: filteredRecent
+    };
+  }),
   updateProjectLayout: (id, layout) => set((state) => ({
     projects: state.projects.map((p) =>
       p.id === id ? { ...p, layout, lastSaved: new Date().toISOString() } : p
@@ -149,6 +193,41 @@ export const usePlatformStore = create<PlatformState>((set) => ({
         p.id === projectId ? { ...p, layout: JSON.parse(JSON.stringify(version.layout)), lastSaved: new Date().toISOString() } : p
       )
     };
+  }),
+
+  toggleAutosave: () => set((state) => {
+    const nextVal = !state.autosaveEnabled;
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("novasim_autosave_enabled", String(nextVal));
+    }
+    return { autosaveEnabled: nextVal };
+  }),
+
+  addRecentProject: (id, name) => set((state) => {
+    const filtered = state.recentProjects.filter((rp) => rp.id !== id);
+    const updated = [{ id, name, timestamp: new Date().toISOString() }, ...filtered].slice(0, 10);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("novasim_recent_projects", JSON.stringify(updated));
+    }
+    return { recentProjects: updated };
+  }),
+
+  clearRecentProjects: () => set(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("novasim_recent_projects");
+    }
+    return { recentProjects: [] };
+  }),
+
+  setCrashBackup: (backup) => set(() => {
+    if (typeof window !== "undefined") {
+      if (backup === null) {
+        window.localStorage.removeItem("novasim_crash_backup");
+      } else {
+        window.localStorage.setItem("novasim_crash_backup", JSON.stringify(backup));
+      }
+    }
+    return { crashBackup: backup };
   }),
 
   // Plugins State

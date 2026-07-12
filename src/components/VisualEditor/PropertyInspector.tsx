@@ -41,7 +41,7 @@ interface PropertyInspectorProps {
 }
 
 // Default property specifications for the standard node library
-const DEFAULT_NODE_PROPERTIES: Record<NodeType, Partial<NodeProperties>> = {
+const DEFAULT_NODE_PROPERTIES: Partial<Record<NodeType, Partial<NodeProperties>>> = {
   source: { arrivalInterval: 10, distribution: "exponential", color: "#10b981", width: 140, height: 52, rotation: 0 },
   queue: { capacity: 9999, color: "#eab308", width: 140, height: 52, rotation: 0 },
   processor: { processingTime: 8, capacity: 1, distribution: "exponential", color: "#6366f1", width: 140, height: 52, rotation: 0 },
@@ -149,6 +149,25 @@ export default function PropertyInspector({
   const unifiedSeparatorSplitRatio = getUnifiedValue(activeNodes, (n) => n.properties.separatorSplitRatio ?? 0.5);
   const unifiedCombinerType = getUnifiedValue(activeNodes, (n) => n.properties.combinerType ?? "batch");
   const unifiedCombinerBatchSize = getUnifiedValue(activeNodes, (n) => n.properties.combinerBatchSize ?? 2);
+
+  // Unify Phase 10 Resource properties
+  const unifiedShiftEnabled = getUnifiedValue(activeNodes, (n) => n.properties.shiftEnabled ?? true);
+  const unifiedShiftStart = getUnifiedValue(activeNodes, (n) => n.properties.shiftStart ?? 0);
+  const unifiedShiftEnd = getUnifiedValue(activeNodes, (n) => n.properties.shiftEnd ?? 400);
+  const unifiedShiftCycle = getUnifiedValue(activeNodes, (n) => n.properties.shiftCycle ?? 500);
+
+  const unifiedBreakEnabled = getUnifiedValue(activeNodes, (n) => n.properties.breakEnabled ?? false);
+  const unifiedBreakStart = getUnifiedValue(activeNodes, (n) => n.properties.breakStart ?? 150);
+  const unifiedBreakEnd = getUnifiedValue(activeNodes, (n) => n.properties.breakEnd ?? 185);
+  const unifiedBreakCycle = getUnifiedValue(activeNodes, (n) => n.properties.breakCycle ?? 500);
+
+  const unifiedFailureEnabled = getUnifiedValue(activeNodes, (n) => n.properties.failureEnabled ?? false);
+  const unifiedFailureMTBF = getUnifiedValue(activeNodes, (n) => n.properties.failureMTBF ?? 200);
+  const unifiedFailureMTTR = getUnifiedValue(activeNodes, (n) => n.properties.failureMTTR ?? 40);
+
+  const unifiedMaintenanceEnabled = getUnifiedValue(activeNodes, (n) => n.properties.maintenanceEnabled ?? false);
+  const unifiedMaintenanceInterval = getUnifiedValue(activeNodes, (n) => n.properties.maintenanceInterval ?? 300);
+  const unifiedMaintenanceDuration = getUnifiedValue(activeNodes, (n) => n.properties.maintenanceDuration ?? 30);
 
   // Unify standard connection fields
   const unifiedConnLabel = getUnifiedValue(activeConnections, (c) => c.label ?? "");
@@ -1174,50 +1193,234 @@ export default function PropertyInspector({
                           </>
                         )}
 
-                        {/* 6. RESOURCE CLASS */}
-                        {commonType === "resource" && (
-                          <>
-                            {isFieldVisible("Resource Type", "simulation") && (
-                              <div>
-                                {renderFieldHeader("Resource Class", "resourceType", "The operational class classification of this constraint")}
-                                <select
-                                  value={unifiedResourceType.isMixed ? "" : unifiedResourceType.value}
-                                  onChange={(e) => triggerNodePropertyUpdate("resourceType", e.target.value)}
-                                  className="w-full bg-slate-950 text-slate-200 border border-slate-900 rounded pl-2.5 py-1.5 text-[10px] font-mono focus:outline-none focus:border-indigo-600 cursor-pointer"
-                                >
-                                  {unifiedResourceType.isMixed && <option value="">— Mixed —</option>}
-                                  <option value="Worker">Human Operator (Worker)</option>
-                                  <option value="Tool">Mechanical Tooling (Tool)</option>
-                                  <option value="Fixture">Alignment Fixture (Fixture)</option>
-                                  <option value="Space">Floorspace bay (Space)</option>
-                                </select>
-                              </div>
-                            )}
+                            {/* 6. RESOURCE CLASS */}
+                            {commonType === "resource" && (
+                              <>
+                                {isFieldVisible("Resource Type", "simulation") && (
+                                  <div>
+                                    {renderFieldHeader("Resource Class", "resourceType", "The operational class classification of this constraint")}
+                                    <select
+                                      value={unifiedResourceType.isMixed ? "" : unifiedResourceType.value}
+                                      onChange={(e) => triggerNodePropertyUpdate("resourceType", e.target.value)}
+                                      className="w-full bg-slate-950 text-slate-200 border border-slate-900 rounded pl-2.5 py-1.5 text-[10px] font-mono focus:outline-none focus:border-indigo-600 cursor-pointer"
+                                    >
+                                      {unifiedResourceType.isMixed && <option value="">— Mixed —</option>}
+                                      <option value="Worker">Human Operator (Worker)</option>
+                                      <option value="Tool">Mechanical Tooling (Tool)</option>
+                                      <option value="Fixture">Alignment Fixture (Fixture)</option>
+                                      <option value="Space">Floorspace bay (Space)</option>
+                                    </select>
+                                  </div>
+                                )}
 
-                            {isFieldVisible("Quantity", "simulation") && (
-                              <div>
-                                {renderFieldHeader("Available Quantity pool", "quantity", "Total operational inventory size available for constraint allocation")}
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={unifiedQuantity.isMixed ? "" : unifiedQuantity.value}
-                                  placeholder={unifiedQuantity.isMixed ? "—" : "1"}
-                                  onFocus={handleFieldFocus}
-                                  onBlur={handleFieldBlur}
-                                  onChange={(e) => {
-                                    const val = parseInt(e.target.value);
-                                    if (validateField("quantity", val, { type: "number", min: 1, max: 1000 })) {
-                                      triggerNodePropertyUpdate("quantity", val);
-                                    }
-                                  }}
-                                  className={`w-full bg-slate-950 text-slate-200 border rounded pl-2.5 py-1.5 text-[10px] font-mono focus:outline-none transition-all ${
-                                    errors.quantity ? "border-red-500" : "border-slate-900 focus:border-indigo-600"
-                                  }`}
-                                />
-                              </div>
+                                {isFieldVisible("Quantity", "simulation") && (
+                                  <div>
+                                    {renderFieldHeader("Available Quantity pool", "quantity", "Total operational inventory size available for constraint allocation")}
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={unifiedQuantity.isMixed ? "" : unifiedQuantity.value}
+                                      placeholder={unifiedQuantity.isMixed ? "—" : "1"}
+                                      onFocus={handleFieldFocus}
+                                      onBlur={handleFieldBlur}
+                                      onChange={(e) => {
+                                        const val = parseInt(e.target.value);
+                                        if (validateField("quantity", val, { type: "number", min: 1, max: 1000 })) {
+                                          triggerNodePropertyUpdate("quantity", val);
+                                        }
+                                      }}
+                                      className={`w-full bg-slate-950 text-slate-200 border rounded pl-2.5 py-1.5 text-[10px] font-mono focus:outline-none transition-all ${
+                                        errors.quantity ? "border-red-500" : "border-slate-900 focus:border-indigo-600"
+                                      }`}
+                                    />
+                                  </div>
+                                )}
+
+                                {/* Shift Schedules */}
+                                <div className="border-t border-slate-900 mt-3 pt-3 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-wider">Shift Schedule</span>
+                                    <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-mono text-slate-300 select-none">
+                                      <input
+                                        type="checkbox"
+                                        checked={unifiedShiftEnabled.isMixed ? false : unifiedShiftEnabled.value}
+                                        onChange={(e) => triggerNodePropertyUpdate("shiftEnabled", e.target.checked)}
+                                        className="rounded bg-slate-950 border-slate-900 text-indigo-600 focus:ring-0 focus:ring-offset-0 w-3 h-3 cursor-pointer"
+                                      />
+                                      Active
+                                    </label>
+                                  </div>
+                                  
+                                  {unifiedShiftEnabled.value && (
+                                    <div className="grid grid-cols-3 gap-1.5">
+                                      <div>
+                                        {renderFieldHeader("Start (s)", "shiftStart", "Start time of shift relative to cycle")}
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={unifiedShiftStart.isMixed ? "" : unifiedShiftStart.value}
+                                          onChange={(e) => triggerNodePropertyUpdate("shiftStart", parseInt(e.target.value) || 0)}
+                                          className="w-full bg-slate-950 text-slate-200 border border-slate-900 rounded pl-2 py-1 text-[9px] font-mono focus:outline-none"
+                                        />
+                                      </div>
+                                      <div>
+                                        {renderFieldHeader("End (s)", "shiftEnd", "End time of shift relative to cycle")}
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={unifiedShiftEnd.isMixed ? "" : unifiedShiftEnd.value}
+                                          onChange={(e) => triggerNodePropertyUpdate("shiftEnd", parseInt(e.target.value) || 0)}
+                                          className="w-full bg-slate-950 text-slate-200 border border-slate-900 rounded pl-2 py-1 text-[9px] font-mono focus:outline-none"
+                                        />
+                                      </div>
+                                      <div>
+                                        {renderFieldHeader("Cycle (s)", "shiftCycle", "Shift cycle repetition interval")}
+                                        <input
+                                          type="number"
+                                          min="10"
+                                          value={unifiedShiftCycle.isMixed ? "" : unifiedShiftCycle.value}
+                                          onChange={(e) => triggerNodePropertyUpdate("shiftCycle", parseInt(e.target.value) || 500)}
+                                          className="w-full bg-slate-950 text-slate-200 border border-slate-900 rounded pl-2 py-1 text-[9px] font-mono focus:outline-none"
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Break Schedules */}
+                                <div className="border-t border-slate-900 mt-2 pt-2 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-wider">Break Schedule</span>
+                                    <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-mono text-slate-300 select-none">
+                                      <input
+                                        type="checkbox"
+                                        checked={unifiedBreakEnabled.isMixed ? false : unifiedBreakEnabled.value}
+                                        onChange={(e) => triggerNodePropertyUpdate("breakEnabled", e.target.checked)}
+                                        className="rounded bg-slate-950 border-slate-900 text-indigo-600 focus:ring-0 focus:ring-offset-0 w-3 h-3 cursor-pointer"
+                                      />
+                                      Active
+                                    </label>
+                                  </div>
+                                  
+                                  {unifiedBreakEnabled.value && (
+                                    <div className="grid grid-cols-3 gap-1.5">
+                                      <div>
+                                        {renderFieldHeader("Start (s)", "breakStart", "Start time of break relative to cycle")}
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={unifiedBreakStart.isMixed ? "" : unifiedBreakStart.value}
+                                          onChange={(e) => triggerNodePropertyUpdate("breakStart", parseInt(e.target.value) || 0)}
+                                          className="w-full bg-slate-950 text-slate-200 border border-slate-900 rounded pl-2 py-1 text-[9px] font-mono focus:outline-none"
+                                        />
+                                      </div>
+                                      <div>
+                                        {renderFieldHeader("End (s)", "breakEnd", "End time of break relative to cycle")}
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={unifiedBreakEnd.isMixed ? "" : unifiedBreakEnd.value}
+                                          onChange={(e) => triggerNodePropertyUpdate("breakEnd", parseInt(e.target.value) || 0)}
+                                          className="w-full bg-slate-950 text-slate-200 border border-slate-900 rounded pl-2 py-1 text-[9px] font-mono focus:outline-none"
+                                        />
+                                      </div>
+                                      <div>
+                                        {renderFieldHeader("Cycle (s)", "breakCycle", "Break cycle repetition interval")}
+                                        <input
+                                          type="number"
+                                          min="10"
+                                          value={unifiedBreakCycle.isMixed ? "" : unifiedBreakCycle.value}
+                                          onChange={(e) => triggerNodePropertyUpdate("breakCycle", parseInt(e.target.value) || 500)}
+                                          className="w-full bg-slate-950 text-slate-200 border border-slate-900 rounded pl-2 py-1 text-[9px] font-mono focus:outline-none"
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Failures / Breakdowns */}
+                                <div className="border-t border-slate-900 mt-2 pt-2 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-wider">Breakdowns & Failures</span>
+                                    <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-mono text-slate-300 select-none">
+                                      <input
+                                        type="checkbox"
+                                        checked={unifiedFailureEnabled.isMixed ? false : unifiedFailureEnabled.value}
+                                        onChange={(e) => triggerNodePropertyUpdate("failureEnabled", e.target.checked)}
+                                        className="rounded bg-slate-950 border-slate-900 text-indigo-600 focus:ring-0 focus:ring-offset-0 w-3 h-3 cursor-pointer"
+                                      />
+                                      Active
+                                    </label>
+                                  </div>
+                                  
+                                  {unifiedFailureEnabled.value && (
+                                    <div className="grid grid-cols-2 gap-1.5">
+                                      <div>
+                                        {renderFieldHeader("Mean MTBF (s)", "failureMTBF", "Mean Time Between Failures in seconds")}
+                                        <input
+                                          type="number"
+                                          min="10"
+                                          value={unifiedFailureMTBF.isMixed ? "" : unifiedFailureMTBF.value}
+                                          onChange={(e) => triggerNodePropertyUpdate("failureMTBF", parseInt(e.target.value) || 10)}
+                                          className="w-full bg-slate-950 text-slate-200 border border-slate-900 rounded pl-2 py-1 text-[9px] font-mono focus:outline-none"
+                                        />
+                                      </div>
+                                      <div>
+                                        {renderFieldHeader("Mean MTTR (s)", "failureMTTR", "Mean Time To Repair in seconds")}
+                                        <input
+                                          type="number"
+                                          min="1"
+                                          value={unifiedFailureMTTR.isMixed ? "" : unifiedFailureMTTR.value}
+                                          onChange={(e) => triggerNodePropertyUpdate("failureMTTR", parseInt(e.target.value) || 1)}
+                                          className="w-full bg-slate-950 text-slate-200 border border-slate-900 rounded pl-2 py-1 text-[9px] font-mono focus:outline-none"
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Scheduled Maintenance */}
+                                <div className="border-t border-slate-900 mt-2 pt-2 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-wider">Preventive Maintenance</span>
+                                    <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-mono text-slate-300 select-none">
+                                      <input
+                                        type="checkbox"
+                                        checked={unifiedMaintenanceEnabled.isMixed ? false : unifiedMaintenanceEnabled.value}
+                                        onChange={(e) => triggerNodePropertyUpdate("maintenanceEnabled", e.target.checked)}
+                                        className="rounded bg-slate-950 border-slate-900 text-indigo-600 focus:ring-0 focus:ring-offset-0 w-3 h-3 cursor-pointer"
+                                      />
+                                      Active
+                                    </label>
+                                  </div>
+                                  
+                                  {unifiedMaintenanceEnabled.value && (
+                                    <div className="grid grid-cols-2 gap-1.5">
+                                      <div>
+                                        {renderFieldHeader("Interval (s)", "maintenanceInterval", "Service frequency interval in seconds")}
+                                        <input
+                                          type="number"
+                                          min="10"
+                                          value={unifiedMaintenanceInterval.isMixed ? "" : unifiedMaintenanceInterval.value}
+                                          onChange={(e) => triggerNodePropertyUpdate("maintenanceInterval", parseInt(e.target.value) || 10)}
+                                          className="w-full bg-slate-950 text-slate-200 border border-slate-900 rounded pl-2 py-1 text-[9px] font-mono focus:outline-none"
+                                        />
+                                      </div>
+                                      <div>
+                                        {renderFieldHeader("Duration (s)", "maintenanceDuration", "Time in seconds to complete maintenance")}
+                                        <input
+                                          type="number"
+                                          min="1"
+                                          value={unifiedMaintenanceDuration.isMixed ? "" : unifiedMaintenanceDuration.value}
+                                          onChange={(e) => triggerNodePropertyUpdate("maintenanceDuration", parseInt(e.target.value) || 1)}
+                                          className="w-full bg-slate-950 text-slate-200 border border-slate-900 rounded pl-2 py-1 text-[9px] font-mono focus:outline-none"
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </>
                             )}
-                          </>
-                        )}
 
                         {/* 7. TRANSPORTER CLASS */}
                         {commonType === "transporter" && (

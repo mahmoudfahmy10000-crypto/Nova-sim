@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { SimNode, SimConnection, SimulationLayout, SimEntity, ResourceState } from "../../core/simulation/types";
+import { SimNode, SimConnection, SimulationLayout, SimEntity, ResourceState, SimulationAnalytics } from "../../core/simulation/types";
 import { DiscreteEventSimulation } from "../../core/simulation/DiscreteEventSimulation";
+import { validateProjectJSON } from "../../core/simulation/validation";
 import Canvas2D from "./Canvas2D";
 import Viewport3D from "./Viewport3D";
 import ObjectLibrary from "./ObjectLibrary";
@@ -10,6 +11,9 @@ import CopilotPanel from "./CopilotPanel";
 import ProjectPanel from "./ProjectPanel";
 import AuthPanel from "./AuthPanel";
 import PluginPanel from "./PluginPanel";
+import EntityTrackerPanel from "./EntityTrackerPanel";
+import AnalyticsPanel from "./AnalyticsPanel";
+import DeveloperPanel from "./DeveloperPanel";
 import { usePlatformStore, Locale } from "../../core/store/platformStore";
 import { getTranslation } from "../../core/i18n/translations";
 import {
@@ -18,6 +22,7 @@ import {
   Database,
   Terminal,
   Activity,
+  TrendingUp,
   CheckCircle2,
   AlertTriangle,
   PlayCircle,
@@ -30,7 +35,12 @@ import {
   Shield,
   Globe,
   Sun,
-  Moon
+  Moon,
+  Lock,
+  Unlock,
+  Copy,
+  Plus,
+  X
 } from "lucide-react";
 
 // Default factory assembly line layout
@@ -76,9 +86,93 @@ const DEFAULT_LAYOUT: SimulationLayout = {
   ]
 };
 
+export interface ModelTab {
+  id: string;
+  name: string;
+  nodes: SimNode[];
+  connections: SimConnection[];
+  zoom: number;
+  panOffset: { x: number; y: number };
+  showGrid: boolean;
+  snapSize: number;
+  locked: boolean;
+}
+
 export default function MainEditor() {
-  const { locale, setLocale, theme, toggleTheme, user } = usePlatformStore();
-  const [sidebarTab, setSidebarTab] = useState<"inspector" | "projects" | "auth" | "plugins">("inspector");
+  const { 
+    locale, 
+    setLocale, 
+    theme, 
+    toggleTheme, 
+    user,
+    currentProjectId,
+    setCurrentProjectId,
+    setProjects,
+    addRecentProject,
+    crashBackup,
+    setCrashBackup,
+    autosaveEnabled,
+    updateProjectLayout
+  } = usePlatformStore();
+  
+  const [sidebarTab, setSidebarTab] = useState<"inspector" | "entities" | "projects" | "auth" | "plugins" | "analytics" | "developer">("inspector");
+  
+  // --- Tabbed Multi-Model Infrastructure ---
+  const [tabs, setTabs] = useState<ModelTab[]>([
+    {
+      id: "tab_default",
+      name: "Main Assembly Line",
+      nodes: DEFAULT_LAYOUT.nodes,
+      connections: DEFAULT_LAYOUT.connections,
+      zoom: 1.0,
+      panOffset: { x: 50, y: 50 },
+      showGrid: true,
+      snapSize: 10,
+      locked: false
+    },
+    {
+      id: "tab_logistics",
+      name: "Logistics & AGV Loop",
+      nodes: [
+        {
+          id: "src_02",
+          type: "source",
+          name: "Dock Arrivals",
+          x: 50,
+          y: 180,
+          properties: { arrivalInterval: 15, distribution: "exponential", color: "#10b981" }
+        },
+        {
+          id: "agv_01",
+          type: "agv",
+          name: "AGV Loop Track",
+          x: 260,
+          y: 180,
+          properties: { transporterCapacity: 2, transporterSpeed: 3.0, color: "#f97316" }
+        },
+        {
+          id: "snk_02",
+          type: "sink",
+          name: "Logistics Discharge",
+          x: 500,
+          y: 180,
+          properties: { color: "#ef4444" }
+        }
+      ],
+      connections: [
+        { id: "conn_l1", sourceId: "src_02", targetId: "agv_01" },
+        { id: "conn_l2", sourceId: "agv_01", targetId: "snk_02" }
+      ],
+      zoom: 1.0,
+      panOffset: { x: 50, y: 50 },
+      showGrid: true,
+      snapSize: 10,
+      locked: false
+    }
+  ]);
+  const [activeTabId, setActiveTabId] = useState<string>("tab_default");
+  const currentTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+
   const [nodes, setNodes] = useState<SimNode[]>(DEFAULT_LAYOUT.nodes);
   const [connections, setConnections] = useState<SimConnection[]>(DEFAULT_LAYOUT.connections);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -87,6 +181,17 @@ export default function MainEditor() {
   const [selectedConnectionIds, setSelectedConnectionIds] = useState<string[]>([]);
   const canvasHistoryPushRef = useRef<() => void>(() => {});
   const [activeView, setActiveView] = useState<"2d" | "3d">("2d");
+
+  // Viewport / Canvas state settings
+  const [zoom, setZoom] = useState(1.0);
+  const [panOffset, setPanOffset] = useState({ x: 50, y: 50 });
+  const [showGrid, setShowGrid] = useState(true);
+  const [snapSize, setSnapSize] = useState(10);
+
+  // Crash Recovery & Autosave states
+  const [showCrashAlert, setShowCrashAlert] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [lastAutoSavedTime, setLastAutoSavedTime] = useState<string | null>(null);
 
   const handleSelectNode = (id: string | null) => {
     setSelectedNodeId(id);
@@ -127,6 +232,7 @@ export default function MainEditor() {
   const [entities, setEntities] = useState<SimEntity[]>([]);
   const [resources, setResources] = useState<Record<string, ResourceState>>({});
   const [simLogs, setSimLogs] = useState<string[]>([]);
+  const [analytics, setAnalytics] = useState<SimulationAnalytics | null>(null);
   const [isPersisting, setIsPersisting] = useState(false);
   const [persistMsg, setPersistMsg] = useState<string | null>(null);
 
@@ -138,10 +244,248 @@ export default function MainEditor() {
   const simRunnerRef = useRef<DiscreteEventSimulation | null>(null);
   const localLoopIntervalRef = useRef<any>(null);
 
-  // Load defaults from server or local storage on boot
+  const currentProject = usePlatformStore((s) => s.projects.find((p) => p.id === currentProjectId));
+
+  // Initialize layout loader
+  const handleLoadLayout = (layout: SimulationLayout) => {
+    setNodes(layout.nodes || []);
+    setConnections(layout.connections || []);
+    if (layout.zoom !== undefined) setZoom(layout.zoom);
+    if (layout.panOffsetX !== undefined && layout.panOffsetY !== undefined) {
+      setPanOffset({ x: layout.panOffsetX, y: layout.panOffsetY });
+    }
+    if (layout.showGrid !== undefined) setShowGrid(layout.showGrid);
+    if (layout.snapSize !== undefined) setSnapSize(layout.snapSize);
+    setSelectedNodeId(null);
+    setSelectedConnectionId(null);
+    simRunnerRef.current = null;
+  };
+
+  // Synchronize state of current tab with primary editor canvas coordinates, nodes, and configurations
   useEffect(() => {
-    loadProjectFromServer();
+    setTabs((prev) =>
+      prev.map((t) =>
+        t.id === activeTabId
+          ? {
+              ...t,
+              nodes,
+              connections,
+              zoom,
+              panOffset,
+              showGrid,
+              snapSize
+            }
+          : t
+      )
+    );
+  }, [nodes, connections, zoom, panOffset.x, panOffset.y, showGrid, snapSize, activeTabId]);
+
+  const handleSelectTab = (tabId: string) => {
+    const tab = tabs.find((t) => t.id === tabId);
+    if (tab) {
+      setActiveTabId(tabId);
+      setNodes(tab.nodes);
+      setConnections(tab.connections);
+      setZoom(tab.zoom);
+      setPanOffset(tab.panOffset);
+      setShowGrid(tab.showGrid);
+      setSnapSize(tab.snapSize);
+      setSelectedNodeId(null);
+      setSelectedConnectionId(null);
+    }
+  };
+
+  const handleAddTab = () => {
+    const newId = `tab_${Date.now()}`;
+    const newTab: ModelTab = {
+      id: newId,
+      name: `Model Concept ${tabs.length + 1}`,
+      nodes: [],
+      connections: [],
+      zoom: 1.0,
+      panOffset: { x: 50, y: 50 },
+      showGrid: true,
+      snapSize: 10,
+      locked: false
+    };
+    setTabs((prev) => [...prev, newTab]);
+    setActiveTabId(newId);
+    setNodes([]);
+    setConnections([]);
+    setZoom(1.0);
+    setPanOffset({ x: 50, y: 50 });
+    setShowGrid(true);
+    setSnapSize(10);
+    setSelectedNodeId(null);
+    setSelectedConnectionId(null);
+  };
+
+  const handleDuplicateTab = (tabId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const tabToDup = tabs.find((t) => t.id === tabId);
+    if (tabToDup) {
+      const newId = `tab_${Date.now()}`;
+      const newTab: ModelTab = {
+        ...tabToDup,
+        id: newId,
+        name: `${tabToDup.name} (Copy)`,
+        locked: false
+      };
+      setTabs((prev) => [...prev, newTab]);
+      setActiveTabId(newId);
+      setNodes(newTab.nodes);
+      setConnections(newTab.connections);
+      setZoom(newTab.zoom);
+      setPanOffset(newTab.panOffset);
+      setShowGrid(newTab.showGrid);
+      setSnapSize(newTab.snapSize);
+      setSelectedNodeId(null);
+      setSelectedConnectionId(null);
+    }
+  };
+
+  const handleToggleLockTab = (tabId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTabs((prev) =>
+      prev.map((t) => (t.id === tabId ? { ...t, locked: !t.locked } : t))
+    );
+  };
+
+  const handleDeleteTab = (tabId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (tabs.length <= 1) {
+      return;
+    }
+    const filtered = tabs.filter((t) => t.id !== tabId);
+    setTabs(filtered);
+    if (activeTabId === tabId) {
+      const fallback = filtered[0];
+      setActiveTabId(fallback.id);
+      setNodes(fallback.nodes);
+      setConnections(fallback.connections);
+      setZoom(fallback.zoom);
+      setPanOffset(fallback.panOffset);
+      setShowGrid(fallback.showGrid);
+      setSnapSize(fallback.snapSize);
+      setSelectedNodeId(null);
+      setSelectedConnectionId(null);
+    }
+  };
+
+  const handleRenameTab = (tabId: string, newName: string) => {
+    setTabs((prev) =>
+      prev.map((t) => (t.id === tabId ? { ...t, name: newName } : t))
+    );
+  };
+
+  const handleNewProject = (name: string, description: string) => {
+    setNodes([]);
+    setConnections([]);
+    setZoom(1.0);
+    setPanOffset({ x: 50, y: 50 });
+    setShowGrid(true);
+    setSnapSize(10);
+    setSelectedNodeId(null);
+    setSelectedConnectionId(null);
+    simRunnerRef.current = null;
+  };
+
+  // Sync projects and handle crash recovery check on mount
+  useEffect(() => {
+    const initProjects = async () => {
+      try {
+        const res = await fetch("/api/projects");
+        if (res.ok) {
+          const list = await res.json();
+          if (list && list.length > 0) {
+            setProjects(list);
+            
+            // Choose active project to bootstrap
+            const activeId = currentProjectId || list[0].id || "proj_default";
+            const activeProj = list.find((p: any) => p.id === activeId) || list[0];
+            
+            setCurrentProjectId(activeProj.id);
+            handleLoadLayout(activeProj.layout);
+            addRecentProject(activeProj.id, activeProj.name);
+
+            // Crash Recovery verification:
+            if (crashBackup && crashBackup.projectId === activeProj.id) {
+              const backupTime = new Date(crashBackup.timestamp).getTime();
+              const saveTime = new Date(activeProj.lastSaved || 0).getTime();
+              if (backupTime > saveTime + 2000) {
+                setShowCrashAlert(true);
+              }
+            }
+          } else {
+            await seedDefaultProject();
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to retrieve server project templates. Running in memory-safe cache.", e);
+      }
+    };
+
+    initProjects();
   }, []);
+
+  const seedDefaultProject = async () => {
+    const defaultProj = {
+      id: "proj_default",
+      name: "Standard Factory Assembly",
+      description: "Classic 3-stage CNC factory milling line with deterministic arrival rates.",
+      lastSaved: new Date().toISOString(),
+      layout: {
+        ...DEFAULT_LAYOUT,
+        zoom: 1.0,
+        panOffsetX: 50,
+        panOffsetY: 50,
+        showGrid: true,
+        snapSize: 10
+      },
+      versions: [
+        {
+          id: "ver_init",
+          timestamp: new Date().toISOString(),
+          comment: "Initial system bootstrap topology",
+          layout: {
+            ...DEFAULT_LAYOUT,
+            zoom: 1.0,
+            panOffsetX: 50,
+            panOffsetY: 50,
+            showGrid: true,
+            snapSize: 10
+          }
+        }
+      ]
+    };
+    try {
+      await fetch("/api/projects/proj_default", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(defaultProj)
+      });
+      setProjects([defaultProj]);
+      setCurrentProjectId("proj_default");
+      handleLoadLayout(defaultProj.layout);
+      addRecentProject("proj_default", defaultProj.name);
+    } catch (e) {
+      console.error("Failed to seed default database file", e);
+    }
+  };
+
+  const handleRecoverBackup = () => {
+    if (crashBackup) {
+      handleLoadLayout(crashBackup.layout);
+      setPersistMsg("Crash backup snapshot recovered successfully.");
+      setTimeout(() => setPersistMsg(null), 3500);
+    }
+    setShowCrashAlert(false);
+  };
+
+  const handleDiscardBackup = () => {
+    setCrashBackup(null);
+    setShowCrashAlert(false);
+  };
 
   // Set up WebSocket client link
   useEffect(() => {
@@ -167,10 +511,12 @@ export default function MainEditor() {
 
       ws.onopen = () => {
         setWsStatus("connected");
-        // Sync layout upon connection
+        // Sync layout upon connection including seed and speed configurations
         ws.send(JSON.stringify({
           type: "sync_layout",
-          layout: { nodes, connections }
+          layout: { nodes, connections },
+          seed: seed,
+          speed: simSpeed
         }));
       };
 
@@ -184,8 +530,14 @@ export default function MainEditor() {
             setEntities(msg.summary.entities);
             setResources(msg.summary.resources);
             setSimLogs(msg.summary.recentLogs);
+            if (msg.summary.analytics) {
+              setAnalytics(msg.summary.analytics);
+            }
           } else if (msg.type === "sim_state_changed") {
             setIsRunning(msg.state === "Running");
+          } else if (msg.type === "sim_error") {
+            setIsRunning(false);
+            setSimLogs((prev) => [`[ERROR] ${msg.error}`, ...prev]);
           }
         } catch (e) {
           console.error("Error parsing WebSocket message:", e);
@@ -206,6 +558,39 @@ export default function MainEditor() {
       setWsStatus("disconnected");
     }
   };
+
+  // Reactively sync seed changes
+  useEffect(() => {
+    if (wsStatus === "connected" && socketRef.current) {
+      socketRef.current.send(JSON.stringify({
+        type: "sim_seed_changed",
+        seed: seed
+      }));
+    } else {
+      // Offline fallback: reinitialize local engine on seed change
+      if (simRunnerRef.current) {
+        simRunnerRef.current = new DiscreteEventSimulation({ nodes, connections }, seed);
+        const summary = simRunnerRef.current.getSummary();
+        setResources(summary.resources);
+        setSimLogs((prev) => [`[SYSTEM] Seed updated to ${seed}. Local simulator reset.`, ...prev]);
+      }
+    }
+  }, [seed]);
+
+  // Reactively sync speed changes
+  useEffect(() => {
+    if (wsStatus === "connected" && socketRef.current) {
+      socketRef.current.send(JSON.stringify({
+        type: "sim_speed_changed",
+        speed: simSpeed
+      }));
+    } else {
+      // Offline fallback: restart local loop with new speed if currently running
+      if (isRunning) {
+        startLocalSimulationLoop();
+      }
+    }
+  }, [simSpeed]);
 
   // Run Local Fallback DES Loop
   const startLocalSimulationLoop = () => {
@@ -237,6 +622,9 @@ export default function MainEditor() {
       setEntities(summary.entities);
       setResources(summary.resources);
       setSimLogs(summary.recentLogs);
+      if (summary.analytics) {
+        setAnalytics(summary.analytics);
+      }
 
       if (!keepStepping) {
         setIsRunning(false);
@@ -252,45 +640,124 @@ export default function MainEditor() {
     }
   };
 
-  // Load project from Node REST server
-  const loadProjectFromServer = async () => {
-    try {
-      const response = await fetch("/api/projects/default");
-      if (response.ok) {
-        const proj = await response.json();
-        if (proj && proj.layout) {
-          setNodes(proj.layout.nodes || DEFAULT_LAYOUT.nodes);
-          setConnections(proj.layout.connections || DEFAULT_LAYOUT.connections);
-          simRunnerRef.current = null; // force re-init
-        }
-      }
-    } catch (e) {
-      console.warn("Failed to contact API server for layout, falling back to local storage.", e);
+  // Real-time crash backup writer
+  useEffect(() => {
+    if (currentProjectId && nodes.length > 0) {
+      const currentLayoutState: SimulationLayout = {
+        nodes,
+        connections,
+        zoom,
+        panOffsetX: panOffset.x,
+        panOffsetY: panOffset.y,
+        showGrid,
+        snapSize
+      };
+      
+      setCrashBackup({
+        projectId: currentProjectId,
+        layout: currentLayoutState,
+        timestamp: new Date().toISOString()
+      });
     }
-  };
+  }, [nodes, connections, zoom, panOffset.x, panOffset.y, showGrid, snapSize, currentProjectId]);
+
+  // Automated auto-save background loop
+  useEffect(() => {
+    if (!autosaveEnabled || !currentProjectId || user?.role === "viewer") {
+      setAutoSaveStatus("idle");
+      return;
+    }
+
+    const interval = setInterval(async () => {
+      setAutoSaveStatus("saving");
+      
+      const activeProj = usePlatformStore.getState().projects.find(p => p.id === currentProjectId);
+      if (!activeProj) return;
+
+      const currentLayoutState: SimulationLayout = {
+        nodes,
+        connections,
+        zoom,
+        panOffsetX: panOffset.x,
+        panOffsetY: panOffset.y,
+        showGrid,
+        snapSize
+      };
+
+      const updatedProject = {
+        ...activeProj,
+        lastSaved: new Date().toISOString(),
+        layout: currentLayoutState
+      };
+
+      try {
+        await fetch(`/api/projects/${currentProjectId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedProject)
+        });
+        
+        updateProjectLayout(currentProjectId, currentLayoutState);
+        setCrashBackup(null); // Clear temporary backup upon successful sync
+        
+        setLastAutoSavedTime(new Date().toLocaleTimeString());
+        setAutoSaveStatus("saved");
+        setTimeout(() => setAutoSaveStatus("idle"), 3000);
+      } catch (err) {
+        updateProjectLayout(currentProjectId, currentLayoutState);
+        setAutoSaveStatus("saved");
+        setTimeout(() => setAutoSaveStatus("idle"), 3000);
+      }
+    }, 12000); // Trigger auto-save every 12 seconds
+
+    return () => clearInterval(interval);
+  }, [nodes, connections, zoom, panOffset.x, panOffset.y, showGrid, snapSize, autosaveEnabled, currentProjectId, user?.role]);
 
   // Save current project layout to persistent Express layer
   const saveProjectToServer = async () => {
+    if (!currentProjectId || user?.role === "viewer") return;
     setIsPersisting(true);
     setPersistMsg(null);
+
+    const activeProj = usePlatformStore.getState().projects.find(p => p.id === currentProjectId);
+    if (!activeProj) return;
+
+    const updatedLayout: SimulationLayout = {
+      nodes,
+      connections,
+      zoom,
+      panOffsetX: panOffset.x,
+      panOffsetY: panOffset.y,
+      showGrid,
+      snapSize
+    };
+
+    const updatedProject = {
+      ...activeProj,
+      lastSaved: new Date().toISOString(),
+      layout: updatedLayout
+    };
+
     try {
-      const response = await fetch("/api/projects/default", {
+      const response = await fetch(`/api/projects/${currentProjectId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nodes: nodes,
-          connections: connections
-        })
+        body: JSON.stringify(updatedProject)
       });
 
       if (response.ok) {
-        setPersistMsg("Topology layout written to database context successfully.");
+        updateProjectLayout(currentProjectId, updatedLayout);
+        addRecentProject(currentProjectId, activeProj.name);
+        setCrashBackup(null); // Clear temporary backup
+
+        setPersistMsg("Project files saved and synced successfully.");
         setTimeout(() => setPersistMsg(null), 3000);
       } else {
         throw new Error("HTTP error saving layout");
       }
     } catch (e) {
-      setPersistMsg("Database unavailable. Project cached in local RAM.");
+      updateProjectLayout(currentProjectId, updatedLayout);
+      setPersistMsg("Database sync offline. Project saved locally.");
       setTimeout(() => setPersistMsg(null), 3000);
     } finally {
       setIsPersisting(false);
@@ -300,6 +767,27 @@ export default function MainEditor() {
   // Controls implementations
   const handlePlayPause = () => {
     const nextState = !isRunning;
+
+    if (nextState) {
+      // Perform layout sanity checks on start
+      const validation = validateProjectJSON({ nodes, connections });
+      if (!validation.isValid) {
+        setSimLogs((prev) => [
+          `[VALIDATION ERROR] Cannot start simulation. Resolve layout issues:`,
+          ...validation.errors.map((err) => `✖ ${err}`),
+          ...prev
+        ]);
+        return;
+      }
+      if (validation.warnings.length > 0) {
+        setSimLogs((prev) => [
+          `[VALIDATION WARNING] Setup concerns identified:`,
+          ...validation.warnings.map((warn) => `⚠ ${warn}`),
+          ...prev
+        ]);
+      }
+    }
+
     setIsRunning(nextState);
 
     if (wsStatus === "connected" && socketRef.current) {
@@ -331,29 +819,59 @@ export default function MainEditor() {
       simRunnerRef.current = new DiscreteEventSimulation({ nodes, connections }, seed);
       const summary = simRunnerRef.current.getSummary();
       setResources(summary.resources);
+      setAnalytics(summary.analytics || null);
       setSimLogs(["Local simulator variables reset."]);
     }
   };
 
+  const handleResetStatistics = () => {
+    if (wsStatus === "connected" && socketRef.current) {
+      socketRef.current.send(JSON.stringify({ type: "reset_statistics" }));
+    } else if (simRunnerRef.current) {
+      simRunnerRef.current.resetStatistics();
+      const summary = simRunnerRef.current.getSummary();
+      setAnalytics(summary.analytics || null);
+    }
+  };
+
   const handleStep = () => {
+    // Perform layout sanity checks before stepping
+    const validation = validateProjectJSON({ nodes, connections });
+    if (!validation.isValid) {
+      setSimLogs((prev) => [
+        `[VALIDATION ERROR] Cannot step simulation. Resolve layout issues:`,
+        ...validation.errors.map((err) => `✖ ${err}`),
+        ...prev
+      ]);
+      return;
+    }
+
     if (wsStatus === "connected" && socketRef.current) {
       socketRef.current.send(JSON.stringify({ type: "sim_step" }));
     } else {
       if (!simRunnerRef.current) {
         simRunnerRef.current = new DiscreteEventSimulation({ nodes, connections }, seed);
       }
-      simRunnerRef.current.step();
-      const summary = simRunnerRef.current.getSummary();
-      setClockTime(summary.clockTime);
-      setStepCount(summary.stepCount);
-      setEntities(summary.entities);
-      setResources(summary.resources);
-      setSimLogs(summary.recentLogs);
+      try {
+        simRunnerRef.current.step();
+        const summary = simRunnerRef.current.getSummary();
+        setClockTime(summary.clockTime);
+        setStepCount(summary.stepCount);
+        setEntities(summary.entities);
+        setResources(summary.resources);
+        setSimLogs(summary.recentLogs);
+      } catch (err: any) {
+        setSimLogs((prev) => [`[ERROR] ${err.message || "Simulation step failed."}`, ...prev]);
+      }
     }
   };
 
   // Flow modifications handlers
   const handleAddNode = (type: string) => {
+    if (currentTab?.locked) {
+      setSimLogs((prev) => [`[ACTION DENIED] Model tab "${currentTab.name}" is locked.`, ...prev]);
+      return;
+    }
     const newId = `${type.slice(0, 3)}_${Math.floor(Math.random() * 100000)}`;
     const randomOffset = Math.floor(Math.random() * 40) - 20;
     
@@ -388,6 +906,7 @@ export default function MainEditor() {
   };
 
   const handleUpdateNodeCoords = (id: string, x: number, y: number) => {
+    if (currentTab?.locked) return;
     const updatedNodes = nodes.map((n) => (n.id === id ? { ...n, x, y } : n));
     setNodes(updatedNodes);
 
@@ -400,6 +919,10 @@ export default function MainEditor() {
   };
 
   const handleAddConnection = (sourceId: string, targetId: string) => {
+    if (currentTab?.locked) {
+      setSimLogs((prev) => [`[ACTION DENIED] Model tab "${currentTab.name}" is locked.`, ...prev]);
+      return;
+    }
     // Avoid self connections
     if (sourceId === targetId) return;
 
@@ -435,6 +958,10 @@ export default function MainEditor() {
   };
 
   const handleDeleteNode = (id: string) => {
+    if (currentTab?.locked) {
+      setSimLogs((prev) => [`[ACTION DENIED] Model tab "${currentTab.name}" is locked.`, ...prev]);
+      return;
+    }
     const updatedNodes = nodes.filter((n) => n.id !== id);
     const updatedConns = connections.filter((c) => c.sourceId !== id && c.targetId !== id);
 
@@ -453,6 +980,10 @@ export default function MainEditor() {
   };
 
   const handleDeleteConnection = (id: string) => {
+    if (currentTab?.locked) {
+      setSimLogs((prev) => [`[ACTION DENIED] Model tab "${currentTab.name}" is locked.`, ...prev]);
+      return;
+    }
     const updatedConns = connections.filter((c) => c.id !== id);
     setConnections(updatedConns);
     if (selectedConnectionId === id) {
@@ -470,6 +1001,7 @@ export default function MainEditor() {
   };
 
   const handleUpdateConnectionProperties = (id: string, updatedProps: Partial<SimConnection>) => {
+    if (currentTab?.locked) return;
     if (canvasHistoryPushRef.current) {
       canvasHistoryPushRef.current();
     }
@@ -706,6 +1238,35 @@ export default function MainEditor() {
         </div>
       </div>
 
+      {/* Crash Recovery banner alert */}
+      {showCrashAlert && (
+        <div className="bg-amber-950/45 border-b border-amber-900/40 p-3 px-6 flex items-center justify-between animate-fade-in shrink-0">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+            <div>
+              <span className="text-xs font-mono font-bold text-slate-200">UNSAVED CRASH BACKUP DETECTED</span>
+              <p className="text-[9px] font-mono text-slate-400">
+                The browser has recovered unsaved local modifications for the project '{currentProject?.name || "active project"}' that are newer than the server database files.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={handleRecoverBackup}
+              className="bg-amber-600 hover:bg-amber-500 text-slate-950 font-mono font-bold text-[9px] py-1 px-3 rounded cursor-pointer transition-colors"
+            >
+              RESTORE CHANGES
+            </button>
+            <button
+              onClick={handleDiscardBackup}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-400 font-mono text-[9px] py-1 px-3 rounded cursor-pointer transition-colors"
+            >
+              DISCARD
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main split work layout */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         
@@ -734,6 +1295,71 @@ export default function MainEditor() {
           {/* Central Active View (2D Canvas or 3D Viewport) */}
           <div className="bg-slate-950 border border-slate-900 rounded-xl relative">
             
+            {/* Model Concept Tabs */}
+            <div className="absolute top-3 left-4 z-30 flex items-center gap-1 bg-slate-900/95 backdrop-blur p-1 rounded-lg border border-slate-800">
+              {tabs.map((tab) => (
+                <div
+                  key={tab.id}
+                  onClick={() => handleSelectTab(tab.id)}
+                  className={`flex items-center gap-2 px-2 py-0.5 text-[10px] font-mono font-bold rounded cursor-pointer transition-all ${
+                    activeTabId === tab.id
+                      ? "bg-indigo-600 text-white shadow"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                  }`}
+                >
+                  {/* Lock indicator */}
+                  <button
+                    onClick={(e) => handleToggleLockTab(tab.id, e)}
+                    className="p-0.5 hover:bg-slate-800 rounded transition-colors text-inherit"
+                    title={tab.locked ? "Unlock this model" : "Lock this model"}
+                  >
+                    {tab.locked ? (
+                      <Lock className="w-3 h-3 text-amber-400" />
+                    ) : (
+                      <Unlock className="w-3 h-3 text-slate-500 hover:text-slate-300" />
+                    )}
+                  </button>
+
+                  {/* Tab Name or edit field */}
+                  <input
+                    type="text"
+                    value={tab.name}
+                    onChange={(e) => handleRenameTab(tab.id, e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="bg-transparent border-none outline-none focus:ring-0 text-[10px] font-bold p-0 m-0 w-24 text-inherit"
+                    title="Double click to rename tab"
+                  />
+
+                  {/* Actions: Copy, Close */}
+                  <div className="flex items-center gap-0.5 opacity-60 hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => handleDuplicateTab(tab.id, e)}
+                      className="p-0.5 hover:bg-slate-750 rounded text-slate-400 hover:text-white"
+                      title="Duplicate model layout"
+                    >
+                      <Copy className="w-2.5 h-2.5" />
+                    </button>
+                    {tabs.length > 1 && (
+                      <button
+                        onClick={(e) => handleDeleteTab(tab.id, e)}
+                        className="p-0.5 hover:bg-slate-750 rounded text-slate-400 hover:text-red-400"
+                        title="Close/delete tab"
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <button
+                onClick={handleAddTab}
+                className="p-1 hover:bg-slate-800 rounded text-indigo-400 hover:text-indigo-300 transition-colors ml-1 cursor-pointer"
+                title="Add empty model tab"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
             {/* View Mode toggle tabs */}
             <div className="absolute top-3 right-4 z-30 flex bg-slate-900 p-1 rounded-lg border border-slate-800">
               <button
@@ -768,6 +1394,16 @@ export default function MainEditor() {
                 onDeleteNode={handleDeleteNode}
                 onDeleteConnection={handleDeleteConnection}
                 activeEntityLocations={activeEntityLocations.current}
+                initialZoom={zoom}
+                initialPanOffset={panOffset}
+                initialShowGrid={showGrid}
+                initialSnapSize={snapSize}
+                onViewportChanged={(z, po, sg, ss) => {
+                  setZoom(z);
+                  setPanOffset(po);
+                  setShowGrid(sg);
+                  setSnapSize(ss);
+                }}
                 onSelectionChanged={(nodeIds, connIds) => {
                   setSelectedNodeIds(nodeIds);
                   setSelectedConnectionIds(connIds);
@@ -804,6 +1440,9 @@ export default function MainEditor() {
                 connections={connections}
                 entities={entities}
                 clockTime={clockTime}
+                selectedNodeId={selectedNodeId}
+                onSelectNode={handleSelectNode}
+                onUpdateNodeCoords={handleUpdateNodeCoords}
               />
             )}
           </div>
@@ -881,7 +1520,20 @@ export default function MainEditor() {
           <div className="w-full lg:w-96 border-l border-slate-900 bg-slate-950/20 flex flex-col h-full overflow-hidden shrink-0">
             
             {/* Tab Selection Header */}
-            <div className="flex bg-slate-950 border-b border-slate-900 p-1.5">
+            <div className="flex bg-slate-950 border-b border-slate-900 p-1.5 gap-1 overflow-x-auto">
+              <button
+                onClick={() => setSidebarTab("analytics")}
+                className={`flex-1 py-2 px-1 rounded font-mono text-[9px] font-bold uppercase tracking-wider flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                  sidebarTab === "analytics"
+                    ? "bg-indigo-600 text-white"
+                    : "text-slate-500 hover:text-slate-300 hover:bg-slate-900"
+                }`}
+                title="Live Performance Analytics"
+              >
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>ANALYTICS</span>
+              </button>
+
               <button
                 onClick={() => setSidebarTab("inspector")}
                 className={`flex-1 py-2 px-1 rounded font-mono text-[9px] font-bold uppercase tracking-wider flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
@@ -893,6 +1545,19 @@ export default function MainEditor() {
               >
                 <Activity className="w-3.5 h-3.5" />
                 <span>INSPECT</span>
+              </button>
+
+              <button
+                onClick={() => setSidebarTab("entities")}
+                className={`flex-1 py-2 px-1 rounded font-mono text-[9px] font-bold uppercase tracking-wider flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                  sidebarTab === "entities"
+                    ? "bg-indigo-600 text-white"
+                    : "text-slate-500 hover:text-slate-300 hover:bg-slate-900"
+                }`}
+                title="Live Entity Tracker"
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>ENTITIES</span>
               </button>
 
               <button
@@ -933,10 +1598,30 @@ export default function MainEditor() {
                 <Cpu className="w-3.5 h-3.5" />
                 <span>PLUGINS</span>
               </button>
+
+              <button
+                onClick={() => setSidebarTab("developer")}
+                className={`flex-1 py-2 px-1 rounded font-mono text-[9px] font-bold uppercase tracking-wider flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                  sidebarTab === "developer"
+                    ? "bg-indigo-600 text-white"
+                    : "text-slate-500 hover:text-slate-300 hover:bg-slate-900"
+                }`}
+                title="Developer Platform & Scripting Console"
+              >
+                <Terminal className="w-3.5 h-3.5" />
+                <span>DEVELOPER</span>
+              </button>
             </div>
 
             {/* Active Tab Body Section */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {sidebarTab === "analytics" && (
+                <AnalyticsPanel
+                  analytics={analytics}
+                  nodes={nodes}
+                  onResetStatistics={handleResetStatistics}
+                />
+              )}
               {sidebarTab === "inspector" && (
                 <PropertyInspector
                   selectedNode={selectedNode}
@@ -950,17 +1635,33 @@ export default function MainEditor() {
                   utilizationStats={selectedNodeStats}
                 />
               )}
+              {sidebarTab === "entities" && (
+                <EntityTrackerPanel
+                  entities={entities}
+                  nodes={nodes}
+                  resources={resources}
+                />
+              )}
               {sidebarTab === "projects" && (
                 <ProjectPanel
                   currentLayout={{ nodes, connections }}
-                  onLoadLayout={(layout) => {
-                    setNodes(layout.nodes);
-                    setConnections(layout.connections);
-                  }}
+                  onLoadLayout={handleLoadLayout}
+                  onSaveProject={saveProjectToServer}
+                  onNewProject={handleNewProject}
+                  zoom={zoom}
+                  panOffset={panOffset}
+                  showGrid={showGrid}
+                  snapSize={snapSize}
                 />
               )}
               {sidebarTab === "auth" && <AuthPanel />}
               {sidebarTab === "plugins" && <PluginPanel />}
+              {sidebarTab === "developer" && (
+                <DeveloperPanel
+                  nodes={nodes}
+                  clockTime={clockTime}
+                />
+              )}
             </div>
           </div>
         )}
